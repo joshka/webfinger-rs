@@ -8,6 +8,7 @@ documentation.workspace = true
 repository.workspace = true
 keywords.workspace = true
 authors.workspace = true
+readme.workspace = true
 
 [dependencies]
 http.workspace = true
