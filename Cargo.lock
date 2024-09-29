@@ -1425,7 +1425,7 @@ dependencies = [
 
 [[package]]
 name = "webfinger-cli"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "clap",
  "color-eyre",
@@ -1439,7 +1439,7 @@ dependencies = [
 
 [[package]]
 name = "webfinger-rs"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "axum",
  "http",

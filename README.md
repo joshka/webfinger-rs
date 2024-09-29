@@ -31,7 +31,7 @@ let request = webfinger::Request {
     resource: "acct:carol@example.com",
     rel: "http://openid.net/specs/connect/1.0/issuer",
 };
-let response = request.fetcht().await?;
+let response = request.fetch().await?;
 ```
 
 The library also has a [cli](https://crates.io/crates/webfinger-cli) that can be useful to test
