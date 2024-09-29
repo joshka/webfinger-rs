@@ -10,6 +10,9 @@ mod http;
 #[cfg(feature = "reqwest")]
 mod reqwest;
 
+#[cfg(feature = "axum")]
+mod axum;
+
 #[derive(Debug)]
 pub struct Request {
     /// The host to query

@@ -15,8 +15,8 @@ helper methods to make this easy.
 
 - [x] Client side types
 - [x] Reqwest interaction
-- [ ] Server side types
-- [ ] Axum integration
+- [x] Server side types
+- [x] Axum integration
 - [ ] Actix integration
 
 ## Usage
