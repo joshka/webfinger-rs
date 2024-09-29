@@ -11,13 +11,15 @@ authors.workspace = true
 readme.workspace = true
 
 [features]
+default = []
+axum = ["dep:axum", "dep:axum-extra"]
 reqwest = ["dep:reqwest"]
-axum = ["dep:axum"]
 
 [dependencies]
-axum = { version = "0.7", optional = true, default-features = false, features = [
+axum = { version = "0.7.7", optional = true, default-features = false, features = [
     "json",
 ] }
+axum-extra = { version = "0.9.4", optional = true }
 http.workspace = true
 percent-encoding = "2.3.1"
 nutype = { version = "0.5.0", features = ["serde"] }
@@ -30,3 +32,14 @@ serde_with = "3.9.0"
 thiserror = "1.0.64"
 tracing = "0.1.40"
 url = "2.5.2"
+
+[dev-dependencies]
+axum = { version = "0.7.7" }
+color-eyre = "0.6.3"
+tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread"] }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tower-http = { version = "0.6.1", features = ["trace"] }
+
+[[example]]
+name = "axum"
+required-features = ["axum"]

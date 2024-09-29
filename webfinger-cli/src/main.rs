@@ -3,7 +3,7 @@ use color_eyre::{
     eyre::{Context, OptionExt},
     Result,
 };
-use http::{uri::Authority, Uri};
+use http::Uri;
 use webfinger_rs::{LinkRelationType, Request};
 
 #[derive(Debug, clap::Parser)]
@@ -59,7 +59,7 @@ impl FetchCommand {
         self.resource.parse().wrap_err("invalid resource")
     }
 
-    fn host(&self) -> Result<Authority> {
+    fn host(&self) -> Result<String> {
         // TODO use correct normalization of host names
         let host = self
             .host

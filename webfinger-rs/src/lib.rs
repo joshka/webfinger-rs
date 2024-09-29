@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Debug};
 
-use ::http::{uri::Authority, Uri};
+use ::http::Uri;
 use nutype::nutype;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -16,20 +16,24 @@ mod axum;
 #[derive(Debug)]
 pub struct Request {
     /// The host to query
-    ///
-    /// TODO: This might actually be just the host name, not the full authority.
-    pub host: Authority,
+    pub host: String,
 
     /// Query target.
     ///
     /// This is the URI of the resource to query. It will be stored in the `resource` query
     /// parameter.
+    ///
+    /// TODO: This could be a newtype that represents the resource and makes it easier to extract
+    /// the values / parse into the right types (e.g. `acct:` URIs).
     pub resource: Uri,
 
     /// Link relation types
     ///
     /// This is a list of link relation types to query for. Each link relation type will be stored
     /// in a `rel` query parameter.
+    ///
+    /// TODO: consider renaming this to just `rels` or something similar. The RFC uses the term
+    /// "link relation type" but it's a bit verbose.
     pub link_relation_types: Vec<LinkRelationType>,
 }
 
@@ -58,6 +62,7 @@ impl Debug for Response {
     }
 }
 
+#[skip_serializing_none]
 #[derive(Serialize, Deserialize)]
 pub struct Link {
     pub rel: LinkRelationType,

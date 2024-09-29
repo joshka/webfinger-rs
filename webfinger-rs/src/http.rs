@@ -10,7 +10,6 @@ use crate::{Request, Response};
 
 const WELL_KNOWN_PATH: &str = "/.well-known/webfinger";
 #[allow(unused)]
-const JRD_CONTENT_TYPE: &str = "application/jrd+json";
 
 /// The set of values to percent encode
 ///
