@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Debug};
 
 use ::http::{uri::Authority, Uri};
+use nutype::nutype;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -105,26 +106,22 @@ pub struct Title {
 /// Link relation type
 ///
 /// <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.4.4.1>
-#[derive(Serialize, Deserialize)]
+#[nutype(derive(
+    Debug,
+    Display,
+    Clone,
+    From,
+    Into,
+    FromStr,
+    Display,
+    Serialize,
+    Deserialize,
+    AsRef,
+    Deref,
+    PartialEq,
+    Eq,
+))]
 pub struct LinkRelationType(String);
-
-impl Debug for LinkRelationType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl From<&str> for LinkRelationType {
-    fn from(s: &str) -> LinkRelationType {
-        LinkRelationType(s.to_owned())
-    }
-}
-
-impl From<String> for LinkRelationType {
-    fn from(s: String) -> LinkRelationType {
-        LinkRelationType(s)
-    }
-}
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -160,7 +157,7 @@ mod tests {
         // `"/.well-known/webfinger?resource=acct%3Acarol%40example.com&rel=http%3A%2F%2Fopenid.net%2Fspecs%2Fconnect%2F1.0%2Fissuer"`
         assert_eq!(
             uri.to_string(),
-            "/.well-known/webfinger?resource=acct:carol@example.com&rel=http://openid.net/specs/connect/1.0/issuer",
+            "https://example.com/.well-known/webfinger?resource=acct:carol@example.com&rel=http://openid.net/specs/connect/1.0/issuer",
             );
     }
 
@@ -179,7 +176,7 @@ mod tests {
         // /.well-known/webfinger?resource=http%3A%2F%2Fblog.example.com%2Farticle%2Fid%2F314
         assert_eq!(
             uri.to_string(),
-            "/.well-known/webfinger?resource=http://blog.example.com/article/id/314",
+            "https://blog.example.com/.well-known/webfinger?resource=http://blog.example.com/article/id/314",
         );
     }
 }

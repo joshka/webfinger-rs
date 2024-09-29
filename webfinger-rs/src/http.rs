@@ -54,7 +54,7 @@ impl TryFrom<&Request> for PathAndQuery {
         path.push_str("?resource=");
         path.push_str(&resource);
         for rel in &query.link_relation_types {
-            let rel = utf8_percent_encode(&rel.0, &QUERY).to_string();
+            let rel = utf8_percent_encode(rel, &QUERY).to_string();
             path.push_str("&rel=");
             path.push_str(&rel);
         }
