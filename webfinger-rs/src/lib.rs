@@ -1,49 +1,13 @@
-use std::{collections::HashMap, fmt::Debug, str::FromStr};
+use std::{collections::HashMap, fmt::Debug};
 
-use http::{
-    uri::{Authority, InvalidUri, PathAndQuery, Scheme},
-    Uri,
-};
-use percent_encoding::{utf8_percent_encode, AsciiSet};
+use ::http::{uri::Authority, Uri};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use tracing::debug;
 
-const WELL_KNOWN_PATH: &str = "/.well-known/webfinger";
-#[allow(unused)]
-const JRD_CONTENT_TYPE: &str = "application/jrd+json";
+mod http;
 
-/// The set of values to percent encode
-///
-/// Notably, this set does not include the `@`, `:`, `?`, and `/` characters which are allowed by
-/// RFC 3986 in the query component.
-///
-/// See the following RFCs for more information:
-/// - <https://www.rfc-editor.org/rfc/rfc7033#section-4.1>
-/// - <https://www.rfc-editor.org/rfc/rfc3986#section-2.1>
-/// - <https://www.rfc-editor.org/rfc/rfc3986#section-3.4>
-/// - <https://www.rfc-editor.org/rfc/rfc3986#appendix-A>
-///
-/// Note: this may be implemented in the `percent-encoding` crate soon in
-/// <https://github.com/servo/rust-url/pull/971>
-const QUERY: AsciiSet = percent_encoding::CONTROLS
-    // RFC 3986
-    .add(b' ')
-    .add(b'"')
-    .add(b'#')
-    .add(b'<')
-    .add(b'>')
-    .add(b'[')
-    .add(b'\\')
-    .add(b']')
-    .add(b'^')
-    .add(b'`')
-    .add(b'{')
-    .add(b'|')
-    .add(b'}')
-    // RFC 7033
-    .add(b'=')
-    .add(b'&');
+#[cfg(feature = "reqwest")]
+mod reqwest;
 
 #[derive(Debug)]
 pub struct Request {
@@ -65,72 +29,14 @@ pub struct Request {
     pub link_relation_types: Vec<LinkRelationType>,
 }
 
-impl TryFrom<&Request> for PathAndQuery {
-    type Error = InvalidUri;
-
-    fn try_from(query: &Request) -> Result<PathAndQuery, InvalidUri> {
-        let resource = query.resource.to_string();
-        let resource = utf8_percent_encode(&resource, &QUERY).to_string();
-        let mut path = WELL_KNOWN_PATH.to_owned();
-        path.push_str("?resource=");
-        path.push_str(&resource);
-        for rel in &query.link_relation_types {
-            let rel = utf8_percent_encode(&rel.0, &QUERY).to_string();
-            path.push_str("&rel=");
-            path.push_str(&rel);
-        }
-        PathAndQuery::from_str(&path)
-    }
-}
-
-impl TryFrom<&Request> for Uri {
-    type Error = http::Error;
-
-    fn try_from(query: &Request) -> Result<Uri, http::Error> {
-        let path_and_query = PathAndQuery::try_from(query)?;
-
-        // HTTPS is mandatory
-        // <https://www.rfc-editor.org/rfc/rfc7033.html#section-4>
-        // <https://www.rfc-editor.org/rfc/rfc7033.html#section-9.1>
-        const SCHEME: Scheme = Scheme::HTTPS;
-
-        Uri::builder()
-            .scheme(SCHEME)
-            .authority(query.host.clone())
-            .path_and_query(path_and_query)
-            .build()
-    }
-}
-
-struct EmptyBody;
-
-#[cfg(feature = "reqwest")]
-impl From<EmptyBody> for reqwest::Body {
-    fn from(_: EmptyBody) -> reqwest::Body {
-        reqwest::Body::default()
-    }
-}
-
-impl TryFrom<&Request> for http::Request<EmptyBody> {
-    type Error = http::Error;
-
-    fn try_from(query: &Request) -> Result<http::Request<EmptyBody>, http::Error> {
-        let uri = Uri::try_from(query)?;
-        http::Request::builder()
-            .method("GET")
-            .uri(uri)
-            .body(EmptyBody)
-    }
-}
-
 // JSON Resource Descriptor (JRD)
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize)]
 pub struct Response {
-    subject: String,
-    aliases: Option<Vec<String>>,
-    properties: Option<HashMap<String, String>>,
-    links: Vec<Link>,
+    pub subject: String,
+    pub aliases: Option<Vec<String>>,
+    pub properties: Option<HashMap<String, String>>,
+    pub links: Vec<Link>,
 }
 
 /// Custom debug implementation to avoid printing `None` fields
@@ -150,11 +56,23 @@ impl Debug for Response {
 
 #[derive(Serialize, Deserialize)]
 pub struct Link {
-    rel: LinkRelationType,
-    r#type: Option<String>,
-    href: Option<String>,
-    titles: Option<Vec<Title>>,
-    properties: Option<HashMap<String, Option<String>>>,
+    pub rel: LinkRelationType,
+    pub r#type: Option<String>,
+    pub href: Option<String>,
+    pub titles: Option<Vec<Title>>,
+    pub properties: Option<HashMap<String, Option<String>>>,
+}
+
+impl Link {
+    pub fn new(rel: LinkRelationType) -> Self {
+        Self {
+            rel,
+            r#type: None,
+            href: None,
+            titles: None,
+            properties: None,
+        }
+    }
 }
 
 /// Custom debug implementation to avoid printing `None` fields
@@ -184,16 +102,9 @@ pub struct Title {
     value: String,
 }
 
-impl TryFrom<&Response> for http::Response<()> {
-    type Error = http::Error;
-    fn try_from(_: &Response) -> Result<http::Response<()>, http::Error> {
-        http::Response::builder()
-            .header("Content-Type", "application/jrd+json")
-            .body(())
-    }
-}
-
 /// Link relation type
+///
+/// <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.4.4.1>
 #[derive(Serialize, Deserialize)]
 pub struct LinkRelationType(String);
 
@@ -209,38 +120,26 @@ impl From<&str> for LinkRelationType {
     }
 }
 
+impl From<String> for LinkRelationType {
+    fn from(s: String) -> LinkRelationType {
+        LinkRelationType(s)
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    Http(#[from] http::Error),
+    Http(#[from] ::http::Error),
     #[cfg(feature = "reqwest")]
     #[error(transparent)]
-    Reqwest(#[from] reqwest::Error),
+    Reqwest(#[from] ::reqwest::Error),
     #[error("json error: {0}")]
     Json(#[from] serde_json::Error),
 }
 
-#[cfg(feature = "reqwest")]
-impl Request {
-    #[tracing::instrument]
-    pub async fn fetch(&self) -> Result<Response, Error> {
-        let client = reqwest::Client::new();
-        let request = http::Request::try_from(self)?;
-        let request = reqwest::Request::try_from(request)?;
-        let response = client.execute(request).await?;
-        debug!("response: {:?}", response);
-        let response = response.error_for_status()?;
-        let body = response.text().await?;
-        debug!(body, "response body");
-        let response = serde_json::from_str(&body)?;
-        // let response = response.json().await?;
-        Ok(response)
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use http::Uri;
+    use ::http::Uri;
 
     use super::*;
 
