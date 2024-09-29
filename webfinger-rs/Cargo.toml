@@ -1,0 +1,24 @@
+[package]
+name = "webfinger-rs"
+version.workspace = true
+edition.workspace = true
+description.workspace = true
+license.workspace = true
+documentation.workspace = true
+repository.workspace = true
+keywords.workspace = true
+authors.workspace = true
+
+[features]
+reqwest = ["dep:reqwest"]
+
+[dependencies]
+http.workspace = true
+percent-encoding = "2.3.1"
+url = "2.5.2"
+serde = { version = "1.0.210", features = ["derive"] }
+serde_with = "3.9.0"
+serde_json = "1.0.128"
+reqwest = { version = "0.12.7", optional = true, features = ["json"] }
+thiserror = "1.0.64"
+tracing = "0.1.40"
