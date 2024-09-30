@@ -88,7 +88,7 @@
 //! This library is in early days and will have semver breaking changes in the 0.0.x releases. Once
 //! 0.1.0 is released, semver breaking changes will bump the minor version.
 //!
-//! ## License
+//! # License
 //!
 //! Copyright (c) 2024 Josh McKinney
 //!
