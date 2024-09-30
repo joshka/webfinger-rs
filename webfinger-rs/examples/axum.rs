@@ -45,12 +45,13 @@ async fn webfinger(request: WebFingerRequest) -> axum::response::Result<WebFinge
         return Err(not_found().await.into());
     }
     let rel = Rel::new("http://webfinger.net/rel/profile-page");
-    if !request.rels.is_empty() && !request.rels.contains(&rel) {
-        return Ok(WebFingerResponse::builder(subject).build());
-    }
-    let link = Link::builder(rel).href(format!("https://example.com/profile/{subject}"));
-    let reponse = WebFingerResponse::builder(subject).link(link).build();
-    Ok(reponse)
+    let response = if request.rels.is_empty() || request.rels.contains(&rel) {
+        let link = Link::builder(rel).href(format!("https://example.com/profile/{subject}"));
+        WebFingerResponse::builder(subject).link(link).build()
+    } else {
+        WebFingerResponse::builder(subject).build()
+    };
+    Ok(response)
 }
 
 async fn not_found() -> (StatusCode, &'static str) {

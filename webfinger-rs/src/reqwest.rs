@@ -1,5 +1,5 @@
 use http::Uri;
-use tracing::debug;
+use tracing::trace;
 
 use crate::{error::Error, Request, Response};
 
@@ -25,18 +25,31 @@ impl TryFrom<&Request> for http::Request<EmptyBody> {
 }
 
 impl Request {
+    /// Executes the WebFinger request.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use webfinger_rs::Request;
+    ///
+    /// # async fn run() -> Result<(), Box<dyn std::error::Error>> {
+    /// let query = Request::builder("acct:carol@example.com")?
+    ///     .host("example.com")
+    ///     .rel("http://webfinger.net/rel/profile-page")
+    ///     .build();
+    /// let response = query.execute().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[tracing::instrument]
-    pub async fn fetch(&self) -> Result<Response, Error> {
+    pub async fn execute(&self) -> Result<Response, Error> {
         let client = reqwest::Client::new();
         let request = http::Request::try_from(self)?;
         let request = reqwest::Request::try_from(request)?;
         let response = client.execute(request).await?;
-        debug!("response: {:?}", response);
+        trace!("response: {:?}", response);
         let response = response.error_for_status()?;
-        let body = response.text().await?;
-        debug!(body, "response body");
-        let response = serde_json::from_str(&body)?;
-        // let response = response.json().await?;
-        Ok(response)
+        let body = response.json().await?;
+        Ok(body)
     }
 }

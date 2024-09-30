@@ -45,12 +45,12 @@ impl FetchCommand {
         let host = self.host()?;
         let resource = self.resource()?;
         let link_relation_types = self.link_relations();
-        let query = Request {
+        let request = Request {
             host,
             resource,
             rels: link_relation_types,
         };
-        let response = query.fetch().await?;
+        let response = request.execute().await?;
         println!("{:#?}", response);
         Ok(())
     }

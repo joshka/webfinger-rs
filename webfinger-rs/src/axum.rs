@@ -9,7 +9,7 @@ use http::{
     uri::InvalidUri,
     HeaderValue, StatusCode,
 };
-use tracing::debug;
+use tracing::trace;
 
 use crate::{Rel, Request, Response};
 
@@ -27,9 +27,15 @@ impl IntoResponse for Response {
     /// # Example
     ///
     /// ```rust
+    /// use axum::response::IntoResponse;
+    /// use webfinger_rs::{Link, Request, Response};
+    ///
     /// async fn handler(request: Request) -> impl IntoResponse {
     ///     // ... your code to handle the webfinger request ...
-    ///     Request::builder(subject).link(link).build()
+    ///     let subject = request.resource.to_string();
+    ///     let link = Link::builder("http://webfinger.net/rel/profile-page")
+    ///         .href(format!("https://example.com/profile/{subject}"));
+    ///     Response::builder(subject).link(link).build()
     /// }
     /// ```
     ///
@@ -115,16 +121,24 @@ impl<S: Send + Sync> FromRequestParts<S> for Request {
     /// # Example
     ///
     /// ```rust
+    /// use axum::response::IntoResponse;
+    /// use webfinger_rs::Request;
+    ///
     /// async fn handler(request: Request) -> impl IntoResponse {
-    ///     let Request { host, resource, rels } = request;
+    ///     let Request {
+    ///         host,
+    ///         resource,
+    ///         rels,
+    ///     } = request;
     ///     // ... your code to handle the webfinger request ...
+    /// # webfinger_rs::Response::new(resource.to_string())
     /// }
     /// ```
     ///
     /// [axum example]:
     ///     https://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/axum.rs
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        debug!("request parts: {:?}", parts);
+        trace!("request parts: {:?}", parts);
 
         let host = parts
             .uri

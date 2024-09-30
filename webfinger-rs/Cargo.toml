@@ -11,35 +11,46 @@ authors.workspace = true
 readme.workspace = true
 
 [features]
+#! ## Features
+#!
+## No features are enabled by default.
 default = []
+
+## Provides integration with the Axum web framework.
 axum = ["dep:axum", "dep:axum-extra"]
+## Provides integration with the Reqwest HTTP client.
 reqwest = ["dep:reqwest"]
 
 [dependencies]
-axum = { version = "0.7.7", optional = true, default-features = false, features = [
-    "json",
-] }
+axum = { workspace = true, optional = true, features = ["json"] }
 axum-extra = { version = "0.9.4", optional = true, features = ["query"] }
+document-features = "0.2.10"
 http.workspace = true
 percent-encoding = "2.3.1"
 nutype = { version = "0.5.0", features = ["serde"] }
 reqwest = { version = "0.12.7", optional = true, features = ["json"] }
 serde = { version = "1.0.210", features = ["derive"] }
-serde_json = "1.0.128"
 serde_with = "3.9.0"
 thiserror = "1.0.64"
-tracing = "0.1.40"
-url = "2.5.2"
+tracing.workspace = true
 
 [dev-dependencies]
-axum = { version = "0.7.7" }
-color-eyre = "0.6.3"
+axum = { workspace = true, default-features = true }
+color-eyre.workspace = true
 http-body-util = "0.1.2"
-tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread"] }
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tower = "0.5.1"
 tower-http = { version = "0.6.1", features = ["trace"] }
+
+[package.metadata.docs.rs]
+all-features = true
+# see https://doc.rust-lang.org/nightly/rustdoc/scraped-examples.html
+cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
+rustdoc-args = ["--cfg", "docsrs"]
+
 
 [[example]]
 name = "axum"
 required-features = ["axum"]
+doc-scrape-examples = true

@@ -3,6 +3,11 @@
 A rust crate implementing the Webfinger protocol ([RFC
 7033](https://www.rfc-editor.org/rfc/rfc7033.html))
 
+[![Crates.io badge]][crate]
+[![License badge]][license]
+[![Docs.rs badge]][docs]
+[![Deps.rs badge]][dependencies]
+
 ## Motivation
 
 Existing crates have not been updated in some time and have a license that makes them difficult to
@@ -66,3 +71,12 @@ work by you, as defined in the Apache-2.0 license, shall be dual licensed as abo
 additional terms or conditions.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+[Crates.io badge]: https://img.shields.io/crates/v/webfinger-rs?logo=rust&style=for-the-badge
+[License badge]: https://img.shields.io/crates/l/webfinger-rs?style=for-the-badge
+[Docs.rs badge]: https://img.shields.io/docsrs/webfinger-rs?logo=rust&style=for-the-badge
+[Deps.rs badge]: https://deps.rs/repo/github/joshka/webfinger-rs/status.svg?style=for-the-badge
+[crate]: https://crates.io/crates/webfinger-rs
+[license]: ./LICENSE-MIT
+[docs]: https://docs.rs/webfinger-rs/
+[dependencies]: https://deps.rs/repo/github/joshka/webfinger-rs

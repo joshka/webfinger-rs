@@ -3,6 +3,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.0.9] - 2024-09-30
+
+### 📚 Documentation
+
+- Document all the things
+
 ## [0.0.8] - 2024-09-30
 
 ### 🚀 Features

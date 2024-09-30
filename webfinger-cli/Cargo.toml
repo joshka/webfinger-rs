@@ -14,11 +14,11 @@ readme.workspace = true
 http.workspace = true
 
 clap = { version = "4.5.18", features = ["derive"] }
-color-eyre = "0.6.3"
-tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread"] }
-tracing = "0.1.40"
-tracing-error = "0.2.0"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+color-eyre.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tracing.workspace = true
+tracing-error.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 webfinger-rs = { workspace = true, features = ["reqwest"] }
 
 [[bin]]
