@@ -17,7 +17,7 @@ reqwest = ["dep:reqwest"]
 
 [dependencies]
 axum = { version = "0.7.7", optional = true, features = ["json"] }
-axum-extra = { version = "0.9.4", optional = true }
+axum-extra = { version = "0.9.4", optional = true, features = ["query"] }
 http.workspace = true
 percent-encoding = "2.3.1"
 nutype = { version = "0.5.0", features = ["serde"] }
@@ -32,8 +32,10 @@ url = "2.5.2"
 [dev-dependencies]
 axum = { version = "0.7.7" }
 color-eyre = "0.6.3"
+http-body-util = "0.1.2"
 tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tower = "0.5.1"
 tower-http = { version = "0.6.1", features = ["trace"] }
 
 [[example]]

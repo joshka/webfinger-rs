@@ -23,7 +23,7 @@ pub struct Request {
     ///
     /// TODO: consider renaming this to just `rels` or something similar. The RFC uses the term
     /// "link relation type" but it's a bit verbose.
-    pub link_relation_types: Vec<Rel>,
+    pub rels: Vec<Rel>,
 }
 
 impl Request {
@@ -31,7 +31,7 @@ impl Request {
         Self {
             host: String::new(),
             resource,
-            link_relation_types: Vec::new(),
+            rels: Vec::new(),
         }
     }
 }
@@ -51,7 +51,7 @@ mod tests {
         let query = Request {
             host,
             resource,
-            link_relation_types: vec![rel],
+            rels: vec![rel],
         };
         let uri = Uri::try_from(&query).unwrap();
 
@@ -70,7 +70,7 @@ mod tests {
         let query = Request {
             host: "blog.example.com".parse().unwrap(),
             resource,
-            link_relation_types: vec![],
+            rels: vec![],
         };
         let uri = Uri::try_from(&query).unwrap();
 

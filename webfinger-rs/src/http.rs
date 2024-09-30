@@ -52,7 +52,7 @@ impl TryFrom<&Request> for PathAndQuery {
         let mut path = WELL_KNOWN_PATH.to_owned();
         path.push_str("?resource=");
         path.push_str(&resource);
-        for rel in &query.link_relation_types {
+        for rel in &query.rels {
             let rel = utf8_percent_encode(rel, &QUERY).to_string();
             path.push_str("&rel=");
             path.push_str(&rel);

@@ -48,7 +48,7 @@ impl FetchCommand {
         let query = Request {
             host,
             resource,
-            link_relation_types,
+            rels: link_relation_types,
         };
         let response = query.fetch().await?;
         println!("{:#?}", response);

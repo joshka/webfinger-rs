@@ -2,11 +2,12 @@ use std::net::Ipv4Addr;
 
 use axum::{routing::get, Router};
 use color_eyre::Result;
+use http::StatusCode;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use tracing::{info, level_filters::LevelFilter};
 use webfinger_rs::{
-    Link, Request as WebFingerRequest, Response as WebFingerResponse, WELL_KNOWN_PATH,
+    Link, Rel, Request as WebFingerRequest, Response as WebFingerResponse, WELL_KNOWN_PATH,
 };
 
 #[tokio::main]
@@ -38,19 +39,20 @@ fn router() -> Router {
         .route_layer(TraceLayer::new_for_http())
 }
 
-async fn webfinger(request: WebFingerRequest) -> WebFingerResponse {
+async fn webfinger(request: WebFingerRequest) -> axum::response::Result<WebFingerResponse> {
     let subject = request.resource.to_string();
-    let mut link = Link::new("http://webfinger.net/rel/profile-page".into());
-    link.href = Some(format!("https://example.com/{subject}"));
-    let links = vec![link];
-    WebFingerResponse {
-        subject,
-        links,
-        aliases: None,
-        properties: None,
+    if subject != "acct:carol@example.com" {
+        return Err(not_found().await.into());
     }
+    let rel = Rel::new("http://webfinger.net/rel/profile-page");
+    if !request.rels.is_empty() && !request.rels.contains(&rel) {
+        return Ok(WebFingerResponse::builder(subject).build());
+    }
+    let link = Link::builder(rel).href(format!("https://example.com/profile/{subject}"));
+    let reponse = WebFingerResponse::builder(subject).link(link).build();
+    Ok(reponse)
 }
 
-async fn not_found() -> &'static str {
-    "Not Found"
+async fn not_found() -> (StatusCode, &'static str) {
+    (StatusCode::NOT_FOUND, "Not Found")
 }
