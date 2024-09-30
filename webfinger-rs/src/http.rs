@@ -1,12 +1,12 @@
 use std::str::FromStr;
 
-use ::http::{
+use http::{
     uri::{InvalidUri, PathAndQuery, Scheme},
     Uri,
 };
 use percent_encoding::{utf8_percent_encode, AsciiSet};
 
-use crate::{Request, Response};
+use crate::{request::Request, Response};
 
 const WELL_KNOWN_PATH: &str = "/.well-known/webfinger";
 #[allow(unused)]

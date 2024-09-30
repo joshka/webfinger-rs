@@ -4,7 +4,7 @@ use color_eyre::{
     Result,
 };
 use http::Uri;
-use webfinger_rs::{LinkRelationType, Request};
+use webfinger_rs::{Rel, Request};
 
 #[derive(Debug, clap::Parser)]
 struct Cli {
@@ -70,10 +70,7 @@ impl FetchCommand {
             .wrap_err_with(|| format!("invalid host {:?}", host))
     }
 
-    fn link_relations(&self) -> Vec<LinkRelationType> {
-        self.rel
-            .iter()
-            .map(|s| LinkRelationType::from(s.as_str()))
-            .collect()
+    fn link_relations(&self) -> Vec<Rel> {
+        self.rel.iter().map(|s| Rel::from(s.as_str())).collect()
     }
 }

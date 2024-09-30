@@ -5,9 +5,9 @@ use color_eyre::Result;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use tracing::{info, level_filters::LevelFilter};
-use webfinger_rs::{Link, Request as WebFingerRequest, Response as WebFingerResponse};
-
-const WELL_KNOWN_PATH: &str = "/.well-known/webfinger";
+use webfinger_rs::{
+    Link, Request as WebFingerRequest, Response as WebFingerResponse, WELL_KNOWN_PATH,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {

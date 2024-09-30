@@ -13,7 +13,7 @@ use http::{
 };
 use tracing::debug;
 
-use crate::{LinkRelationType, Request, Response};
+use crate::{Rel, Request, Response};
 
 const JRD_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/jrd+json");
 
@@ -60,12 +60,7 @@ impl<S: Send + Sync> FromRequestParts<S> for Request {
                 .body(Body::from(format!("invalid resource: {}", err)))
                 .unwrap()
         })?;
-        let link_relation_types = query
-            .rel
-            .clone()
-            .into_iter()
-            .map(LinkRelationType::from)
-            .collect();
+        let link_relation_types = query.rel.clone().into_iter().map(Rel::from).collect();
         Ok(Request {
             host,
             resource,

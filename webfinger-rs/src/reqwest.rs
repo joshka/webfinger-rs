@@ -1,7 +1,7 @@
 use http::Uri;
 use tracing::debug;
 
-use crate::{Error, Request, Response};
+use crate::{error::Error, request::Request, Response};
 
 struct EmptyBody;
 
