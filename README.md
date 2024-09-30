@@ -1,20 +1,87 @@
 # Webfinger-rs
 
-A rust crate implementing the Webfinger protocol ([RFC
-7033](https://www.rfc-editor.org/rfc/rfc7033.html))
-
 [![Crates.io badge]][crate]
 [![License badge]][license]
 [![Docs.rs badge]][docs]
 [![Deps.rs badge]][dependencies]
 
-## Motivation
+<!-- cargo-rdme start -->
 
-Existing crates have not been updated in some time and have a license that makes them difficult to
-use within other products (GPL-3.0). They are also transport library specific. In contrast this
-library is MIT / Apache licensed, and will be agnostic to the choice of request / server library as
-it builds on the types in the [http](https://crates.io/crates/http) crate with conversions and
-helper methods to make this easy.
+`webfinger-rs` is a Rust library for handling WebFinger protocol defined by [RFC 7033].
+
+WebFinger is  is used to discover information about people or other entities on the internet.
+The motivation of this library is to provide a transport-agnostic implementation of the
+WebFinger protocol for client and server-side application which can be used with different HTTP
+libraries such as [Axum], and [Reqwest]. Additionally, the other available crates for WebFinger
+are either not actively maintained and have a license that is incompatible with incorporating
+the crate into other projects as a library (GPL-3.0).
+
+[RFC 7033]: https://www.rfc-editor.org/rfc/rfc7033.html
+[Axum]: https://crates.io/crates/axum
+[Reqwest]: https://crates.io/crates/reqwest
+
+## Usage
+
+To use this library, add it to your `Cargo.toml`:
+
+```shell
+cargo add webfinger-rs
+```
+
+The library also has a related CLI tool, `webfinger-cli`, which can be installed with:
+
+```shell
+cargo install webfinger-cli
+webfinger fetch acct:carol@example.com --rel http://webfinger.net/rel/avatar
+```
+
+## Client Example
+
+The following example connects to the WebFinger server at `example.com` and requests the profile
+page for the user `carol@example.com`. It requires the `reqwest` feature to be enabled. This
+example is also available in the repository at:
+<https://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/client.rs>.
+
+```rust, no_run
+use webfinger_rs::Request;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let request = Request::builder("acct:carol@example.com")?
+        .host("example.com")
+        .rel("http://webfinger.net/rel/profile-page")
+        .build();
+    let response = request.execute().await?;
+    dbg!(response);
+    Ok(())
+}
+```
+
+## Server Example
+
+The following example is an Axum handler that responds to WebFinger requests. It requires the
+`axum` feature to be enabled. This example is also available in the repository at:
+<https://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/axum.rs>.
+
+```rust
+use axum::response::Result as AxumResult;
+use webfinger_rs::{Link, Rel, Request as WebFingerRequest, Response as WebFingerResponse};
+
+async fn webfinger(request: WebFingerRequest) -> AxumResult<WebFingerResponse> {
+    let subject = request.resource.to_string();
+    if subject != "acct:carol@example.com" {
+        Err((http::StatusCode::NOT_FOUND, "Not Found"))?;
+    }
+    let rel = Rel::new("http://webfinger.net/rel/profile-page");
+    let response = if request.rels.is_empty() || request.rels.contains(&rel) {
+        let link = Link::builder(rel).href(format!("https://example.com/profile/{subject}"));
+        WebFingerResponse::builder(subject).link(link).build()
+    } else {
+        WebFingerResponse::builder(subject).build()
+    };
+    Ok(response)
+}
+```
 
 ## Features / TODO list
 
@@ -24,35 +91,12 @@ helper methods to make this easy.
 - [x] Axum integration
 - [ ] Actix integration
 
-## Usage
-
-```shell
-cargo add webfinger-rs
-```
-
-```rust
-let request = webfinger::Request {
-    host: "example.com".parse()?,
-    resource: "acct:carol@example.com",
-    rel: "http://openid.net/specs/connect/1.0/issuer",
-};
-let response = request.fetch().await?;
-```
-
-The library also has a [cli](https://crates.io/crates/webfinger-cli) that can be useful to test
-WebFinger servers.
-
-```shell
-cargo install webfinger-cli
-webfinger fetch acct:carol@example.com example.com --rel http://openid.net/specs/connect/1.0/issuer
-```
-
 ## Stability
 
 This library is in early days and will have semver breaking changes in the 0.0.x releases. Once
 0.1.0 is released, semver breaking changes will bump the minor version.
 
-## License
+### License
 
 Copyright (c) 2024 Josh McKinney
 
@@ -61,8 +105,9 @@ This project is licensed under either of:
 - Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or
   <https://apache.org/licenses/LICENSE-2.0>)
 - MIT license ([LICENSE-MIT](LICENSE-MIT) or <https://opensource.org/licenses/MIT>)
+  at your option.
 
-at your option.
+<!-- cargo-rdme end -->
 
 ## Contribution
 

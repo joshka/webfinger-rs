@@ -53,7 +53,7 @@
 //!
 //! The following example is an Axum handler that responds to WebFinger requests. It requires the
 //! `axum` feature to be enabled. This example is also available in the repository at:
-//! <https://gitnub.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/axum.rs>.
+//! <https://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/axum.rs>.
 //!
 //! ```rust
 //! use axum::response::Result as AxumResult;
@@ -74,6 +74,30 @@
 //!     Ok(response)
 //! }
 //! ```
+//!
+//! # Features / TODO list
+//!
+//! - [x] Client side types
+//! - [x] Reqwest interaction
+//! - [x] Server side types
+//! - [x] Axum integration
+//! - [ ] Actix integration
+//!
+//! # Stability
+//!
+//! This library is in early days and will have semver breaking changes in the 0.0.x releases. Once
+//! 0.1.0 is released, semver breaking changes will bump the minor version.
+//!
+//! ## License
+//!
+//! Copyright (c) 2024 Josh McKinney
+//!
+//! This project is licensed under either of:
+//!
+//! - Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or
+//!   <https://apache.org/licenses/LICENSE-2.0>)
+//! - MIT license ([LICENSE-MIT](LICENSE-MIT) or <https://opensource.org/licenses/MIT>)
+//!   at your option.
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 

@@ -7,15 +7,15 @@ authors = ["Josh McKinney"]
 edition = "2021"
 description = "A WebFinger client and library written in Rust."
 license = "MIT OR Apache-2.0"
-version = "0.0.9"
+version = "0.0.10"
 documentation = "https://docs.rs/webfinger-rs"
 repository = "https://github.com/joshka/webfinger-rs"
 keywords = ["webfinger", "client", "library", "rust", "cli"]
 readme = "README.md"
 
 [workspace.dependencies]
-webfinger-cli = { path = "webfinger-cli", version = "0.0.9" }
-webfinger-rs = { path = "webfinger-rs", version = "0.0.9" }
+webfinger-cli = { path = "webfinger-cli", version = "0.0.10" }
+webfinger-rs = { path = "webfinger-rs", version = "0.0.10" }
 
 axum = { version = "0.7.7", default-features = false }
 color-eyre = "0.6.3"
