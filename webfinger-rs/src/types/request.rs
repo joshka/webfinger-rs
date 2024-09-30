@@ -14,15 +14,15 @@ pub struct Request {
     pub resource: Uri,
 
     /// The host to query
+    ///
+    /// TODO: this might be better as an Option<Uri> or Option<Host> or something similar. When the
+    /// resource has a host part, it should be used unless this field is set.
     pub host: String,
 
     /// Link relation types
     ///
     /// This is a list of link relation types to query for. Each link relation type will be stored
     /// in a `rel` query parameter.
-    ///
-    /// TODO: consider renaming this to just `rels` or something similar. The RFC uses the term
-    /// "link relation type" but it's a bit verbose.
     pub rels: Vec<Rel>,
 }
 
