@@ -124,21 +124,21 @@ impl LinkBuilder {
         }
     }
 
-    pub fn r#type(mut self, r#type: String) -> Self {
-        self.link.r#type = Some(r#type);
+    pub fn r#type<S: Into<String>>(mut self, r#type: S) -> Self {
+        self.link.r#type = Some(r#type.into());
         self
     }
 
-    pub fn href(mut self, href: String) -> Self {
-        self.link.href = Some(href);
+    pub fn href<S: Into<String>>(mut self, href: S) -> Self {
+        self.link.href = Some(href.into());
         self
     }
 
-    pub fn title(mut self, language: String, value: String) -> Self {
-        self.link
-            .titles
-            .get_or_insert_with(Vec::new)
-            .push(Title { language, value });
+    pub fn title<L: Into<String>, V: Into<String>>(mut self, language: L, value: V) -> Self {
+        self.link.titles.get_or_insert_with(Vec::new).push(Title {
+            language: language.into(),
+            value: value.into(),
+        });
         self
     }
 
@@ -147,11 +147,11 @@ impl LinkBuilder {
         self
     }
 
-    pub fn property(mut self, key: String, value: Option<String>) -> Self {
+    pub fn property<K: Into<String>, V: Into<Option<String>>>(mut self, key: K, value: V) -> Self {
         self.link
             .properties
             .get_or_insert_with(HashMap::new)
-            .insert(key, value);
+            .insert(key.into(), value.into());
         self
     }
 
