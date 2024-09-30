@@ -6,7 +6,7 @@ use http::{
 };
 use percent_encoding::{utf8_percent_encode, AsciiSet};
 
-use crate::{request::Request, Response};
+use crate::{Request, Response};
 
 const WELL_KNOWN_PATH: &str = "/.well-known/webfinger";
 #[allow(unused)]

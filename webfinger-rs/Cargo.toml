@@ -16,9 +16,7 @@ axum = ["dep:axum", "dep:axum-extra"]
 reqwest = ["dep:reqwest"]
 
 [dependencies]
-axum = { version = "0.7.7", optional = true, default-features = false, features = [
-    "json",
-] }
+axum = { version = "0.7.7", optional = true, features = ["json"] }
 axum-extra = { version = "0.9.4", optional = true }
 http.workspace = true
 percent-encoding = "2.3.1"
