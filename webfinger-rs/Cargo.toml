@@ -23,9 +23,7 @@ axum-extra = { version = "0.9.4", optional = true }
 http.workspace = true
 percent-encoding = "2.3.1"
 nutype = { version = "0.5.0", features = ["serde"] }
-reqwest = { version = "0.12.7", optional = true, default-features = false, features = [
-    "json",
-] }
+reqwest = { version = "0.12.7", optional = true, features = ["json"] }
 serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0.128"
 serde_with = "3.9.0"
