@@ -1,6 +1,8 @@
 use axum::{
-    async_trait, body::Body, extract::FromRequestParts, http::Response as AxumResponse,
-    response::IntoResponse, Json,
+    async_trait,
+    extract::FromRequestParts,
+    response::{IntoResponse, Response as AxumResponse},
+    Json,
 };
 use axum_extra::extract::{Query, QueryRejection};
 use http::{
@@ -40,17 +42,16 @@ impl IntoResponse for Response {
     /// ```
     ///
     /// [axum example]: http://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/axum.rs
-    fn into_response(self) -> AxumResponse<Body> {
-        let mut response = Json(self).into_response();
-        let headers = response.headers_mut();
-        headers.insert(header::CONTENT_TYPE, JRD_CONTENT_TYPE);
-        response
+    fn into_response(self) -> AxumResponse {
+        ([(header::CONTENT_TYPE, JRD_CONTENT_TYPE)], Json(self)).into_response()
     }
 }
 
+/// The query parameters for a WebFinger request.
 #[derive(Debug, serde::Deserialize)]
 struct RequestParams {
     resource: String,
+
     #[serde(default)]
     rel: Vec<String>,
 }
@@ -72,21 +73,13 @@ pub enum Rejection {
 
 impl IntoResponse for Rejection {
     /// Converts a WebFinger rejection into an axum response.
-    fn into_response(self) -> AxumResponse<Body> {
-        let (status, body) = match self {
-            Rejection::MissingHost => (StatusCode::BAD_REQUEST, "missing host".to_string()),
-            Rejection::InvalidQueryString(e) => (
-                StatusCode::BAD_REQUEST,
-                format!("invalid query string: {e}"),
-            ),
-            Rejection::InvalidResource(e) => {
-                (StatusCode::BAD_REQUEST, format!("invalid resource: {e}"))
-            }
+    fn into_response(self) -> AxumResponse {
+        let message = match self {
+            Rejection::MissingHost => "missing host".to_string(),
+            Rejection::InvalidQueryString(e) => format!("invalid query string: {e}"),
+            Rejection::InvalidResource(e) => format!("invalid resource: {e}"),
         };
-        AxumResponse::builder()
-            .status(status)
-            .body(Body::from(body))
-            .unwrap()
+        (StatusCode::BAD_REQUEST, message).into_response()
     }
 }
 
@@ -163,6 +156,7 @@ impl<S: Send + Sync> FromRequestParts<S> for Request {
 
 #[cfg(test)]
 mod tests {
+    use axum::body::Body;
     use axum::routing::get;
     use http_body_util::BodyExt;
     use tower::ServiceExt;
