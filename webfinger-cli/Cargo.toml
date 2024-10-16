@@ -11,13 +11,16 @@ authors.workspace = true
 readme.workspace = true
 
 [dependencies]
-http.workspace = true
-
-clap = { version = "4.5.18", features = ["derive"] }
+clap = { version = "4.5.18", features = ["derive", "wrap_help"] }
+clap-cargo = "0.14.1"
+clap-verbosity = "2.1.0"
 color-eyre.workspace = true
+colored_json = "5.0.0"
+http.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing.workspace = true
 tracing-error.workspace = true
+tracing-log = "0.2.0"
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 webfinger-rs = { workspace = true, features = ["reqwest"] }
 
