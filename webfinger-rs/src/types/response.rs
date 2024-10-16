@@ -1,4 +1,7 @@
-use std::{collections::HashMap, fmt::Debug};
+use std::{
+    collections::HashMap,
+    fmt::{self, Debug},
+};
 
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -109,6 +112,12 @@ impl Response {
     /// ```
     pub fn builder<S: Into<String>>(subject: S) -> Builder {
         Builder::new(subject.into())
+    }
+}
+
+impl fmt::Display for Response {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", serde_json::to_string_pretty(self).unwrap())
     }
 }
 
