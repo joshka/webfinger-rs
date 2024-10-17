@@ -7,14 +7,14 @@ authors = ["Josh McKinney"]
 edition = "2021"
 description = "A WebFinger client and library written in Rust."
 license = "MIT OR Apache-2.0"
-version = "0.0.11"
+version = "0.0.12"
 documentation = "https://docs.rs/webfinger-rs"
 repository = "https://github.com/joshka/webfinger-rs"
 keywords = ["webfinger", "client", "library", "rust", "cli"]
 readme = "README.md"
 
 [workspace.dependencies]
-webfinger-rs = { path = "webfinger-rs", version = "0.0.11" }
+webfinger-rs = { path = "webfinger-rs", version = "0.0.12" }
 
 axum = { version = "0.7.7", default-features = false }
 actix-web = { version = "4.9.0" }
