@@ -81,7 +81,7 @@ impl Request {
         }
     }
 
-    /// Creates a new [`Builder`] for a WebFinger request.
+    /// Creates a new [`WebFingerBuilder`] for a WebFinger request.
     pub fn builder<U>(uri: U) -> Result<Builder, Error>
     where
         Uri: TryFrom<U>,
