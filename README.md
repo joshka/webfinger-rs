@@ -43,15 +43,15 @@ example is also available in the repository at:
 <https://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/client.rs>.
 
 ```rust
-use webfinger_rs::Request;
+use webfinger_rs::WebFingerRequest;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let request = Request::builder("acct:carol@example.com")?
+    let request = WebFingerRequest::builder("acct:carol@example.com")?
         .host("example.com")
         .rel("http://webfinger.net/rel/profile-page")
         .build();
-    let response = request.execute().await?;
+    let response = request.execute_reqwest().await?;
     dbg!(response);
     Ok(())
 }
@@ -65,7 +65,7 @@ The following example is an Axum handler that responds to WebFinger requests. It
 
 ```rust
 use axum::response::Result as AxumResult;
-use webfinger_rs::{Link, Rel, Request as WebFingerRequest, Response as WebFingerResponse};
+use webfinger_rs::{Link, Rel, WebFingerRequest, WebFingerResponse};
 
 async fn webfinger(request: WebFingerRequest) -> AxumResult<WebFingerResponse> {
     let subject = request.resource.to_string();
