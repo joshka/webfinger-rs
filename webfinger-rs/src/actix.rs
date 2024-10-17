@@ -47,10 +47,3 @@ impl FromRequest for WebFingerRequest {
         })
     }
 }
-
-// fn rel_value(param: &str) -> Option<String> {
-//     match param.split_once('=') {
-//         Some((key, value)) if key == "rel" => Some(value.to_string()),
-//         _ => None,
-//     }
-// }
