@@ -28,11 +28,11 @@ To use this library, add it to your `Cargo.toml`:
 cargo add webfinger-rs
 ```
 
-The library also has a related CLI tool, `webfinger-cli`, which can be installed with:
+The library also has a related CLI tool, [`webfinger-cli`], which can be installed with:
 
 ```shell
 cargo install webfinger-cli
-webfinger fetch acct:carol@example.com --rel http://webfinger.net/rel/avatar
+webfinger acct:carol@example.com --rel http://webfinger.net/rel/avatar
 ```
 
 ## Client Example
@@ -42,7 +42,7 @@ page for the user `carol@example.com`. It requires the `reqwest` feature to be e
 example is also available in the repository at:
 <https://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/client.rs>.
 
-```rust, no_run
+```rust
 use webfinger_rs::Request;
 
 #[tokio::main]
@@ -83,13 +83,34 @@ async fn webfinger(request: WebFingerRequest) -> AxumResult<WebFingerResponse> {
 }
 ```
 
+## Running the examples
+
+To run the examples, you can use the following commands:
+
+```shell
+cargo run --example actix --features actix
+cargo run --example axum --features axum
+```
+
+This will start a server on `https://localhost:3000` that responds to WebFinger requests for a
+single user, `carol@localhost`. Use [`webfinger-cli`] tool to query these servers. The servers
+create self-signed certificates for `localhost`, which can be ignored with the `--insecure`
+flag.
+
+```shell
+cargo install webfinger-cli
+webfinger acct:carol@localhost localhost:3000 --insecure --rel http://webfinger.net/rel/profile-page
+```
+
+[`webfinger-cli`]: https://crates.io/crates/webfinger-cli
+
 ## Features / TODO list
 
 - [x] Client side types
 - [x] Reqwest interaction
 - [x] Server side types
 - [x] Axum integration
-- [ ] Actix integration
+- [x] Actix integration
 
 ## Stability
 
@@ -104,8 +125,8 @@ This project is licensed under either of:
 
 - Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or
   <https://apache.org/licenses/LICENSE-2.0>)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or <https://opensource.org/licenses/MIT>)
-  at your option.
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or <https://opensource.org/licenses/MIT>) at your
+  option.
 
 <!-- cargo-rdme end -->
 
