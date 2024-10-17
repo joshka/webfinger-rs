@@ -67,3 +67,7 @@ doc-scrape-examples = true
 [[example]]
 name = "actix"
 required-features = ["actix"]
+
+[[example]]
+name = "client"
+required-features = ["reqwest"]

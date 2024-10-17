@@ -15,9 +15,9 @@ use crate::{Error, Rel};
 /// # Examples
 ///
 /// ```rust
-/// use webfinger_rs::Request;
+/// use webfinger_rs::WebFingerRequest;
 ///
-/// let request = Request::builder("acct:carol@example.com")?
+/// let request = WebFingerRequest::builder("acct:carol@example.com")?
 ///     .host("example.com")
 ///     .rel("http://webfinger.net/rel/profile-page")
 ///     .build();
@@ -28,9 +28,9 @@ use crate::{Error, Rel};
 ///
 /// ```rust
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// # use webfinger_rs::Request;
-/// # let request = Request::builder("acct:carol@example.com")?.build();
-/// let response = request.execute().await?;
+/// # use webfinger_rs::WebFingerRequest;
+/// # let request = WebFingerRequest::builder("acct:carol@example.com")?.build();
+/// let response = request.execute_reqwest().await?;
 /// # Ok(())
 /// # }
 /// ```
@@ -38,11 +38,11 @@ use crate::{Error, Rel};
 /// `Request` can be used as an Axum extractor as it implements [`axum::extract::FromRequestParts`].
 ///
 /// ```rust
-/// use webfinger_rs::{Request, Response};
+/// use webfinger_rs::{WebFingerRequest, WebFingerResponse};
 ///
-/// async fn handler(request: Request) -> Response {
+/// async fn handler(request: WebFingerRequest) -> WebFingerResponse {
 ///     // ... handle the request ...
-/// # Response::new("")
+/// # WebFingerResponse::new("")
 /// }
 /// ```
 #[serde_as]
@@ -98,9 +98,9 @@ impl Request {
 /// # Examples
 ///
 /// ```rust
-/// use webfinger_rs::Request;
+/// use webfinger_rs::WebFingerRequest;
 ///
-/// let query = Request::builder("acct:carol@example.com")?
+/// let query = WebFingerRequest::builder("acct:carol@example.com")?
 ///     .host("example.com")
 ///     .rel("http://webfinger.net/rel/profile-page")
 ///     .build();
@@ -142,9 +142,9 @@ impl Builder {
     /// # Examples
     ///
     /// ```rust
-    /// use webfinger_rs::Request;
+    /// use webfinger_rs::WebFingerRequest;
     ///
-    /// let query = Request::builder("acct:carol@example.com")?
+    /// let query = WebFingerRequest::builder("acct:carol@example.com")?
     ///     .rel("http://webfinger.net/rel/profile-page")
     ///     .build();
     /// # Ok::<(), Box<dyn std::error::Error>>(())

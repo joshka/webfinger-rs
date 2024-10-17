@@ -20,7 +20,7 @@ const JRD_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/jrd+
 impl IntoResponse for WebFingerResponse {
     /// Converts a WebFinger response into an axum response.
     ///
-    /// This is used to convert a WebFinger [`Response`] into an axum response in an axum route
+    /// This is used to convert a [`WebFingerResponse`] into an axum response in an axum route
     /// handler. The response will be serialized as JSON and the `Content-Type` header will be set
     /// to `application/jrd+json`.
     ///
@@ -30,18 +30,19 @@ impl IntoResponse for WebFingerResponse {
     ///
     /// ```rust
     /// use axum::response::IntoResponse;
-    /// use webfinger_rs::{Link, Request, Response};
+    /// use webfinger_rs::{Link, WebFingerRequest, WebFingerResponse};
     ///
-    /// async fn handler(request: Request) -> impl IntoResponse {
+    /// async fn handler(request: WebFingerRequest) -> impl IntoResponse {
     ///     // ... your code to handle the webfinger request ...
     ///     let subject = request.resource.to_string();
     ///     let link = Link::builder("http://webfinger.net/rel/profile-page")
     ///         .href(format!("https://example.com/profile/{subject}"));
-    ///     Response::builder(subject).link(link).build()
+    ///     WebFingerResponse::builder(subject).link(link).build()
     /// }
     /// ```
     ///
-    /// [axum example]: http://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/axum.rs
+    /// [axum example]:
+    ///     http://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/axum.rs
     fn into_response(self) -> AxumResponse {
         ([(header::CONTENT_TYPE, JRD_CONTENT_TYPE)], Json(self)).into_response()
     }
@@ -93,10 +94,7 @@ impl From<QueryRejection> for Rejection {
 impl<S: Send + Sync> FromRequestParts<S> for WebFingerRequest {
     type Rejection = Rejection;
 
-    /// Extracts a `Request` from the request parts.
-    ///
-    /// This is used to extract a WebFinger [`Request`] from the request parts in an axum route
-    /// handler.
+    /// Extracts a [`WebFingerRequest`] from the request parts.
     ///
     /// # Errors
     ///
@@ -115,16 +113,16 @@ impl<S: Send + Sync> FromRequestParts<S> for WebFingerRequest {
     ///
     /// ```rust
     /// use axum::response::IntoResponse;
-    /// use webfinger_rs::Request;
+    /// use webfinger_rs::WebFingerRequest;
     ///
-    /// async fn handler(request: Request) -> impl IntoResponse {
-    ///     let Request {
+    /// async fn handler(request: WebFingerRequest) -> impl IntoResponse {
+    ///     let WebFingerRequest {
     ///         host,
     ///         resource,
     ///         rels,
     ///     } = request;
     ///     // ... your code to handle the webfinger request ...
-    /// # webfinger_rs::Response::new(resource.to_string())
+    /// # webfinger_rs::WebFingerResponse::new(resource.to_string())
     /// }
     /// ```
     ///
