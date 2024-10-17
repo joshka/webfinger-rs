@@ -19,7 +19,7 @@ use crate::Rel;
 /// # Examples
 ///
 /// ```rust
-/// use webfinger_rs::{Link, Response};
+/// use webfinger_rs::{Link, WebFingerResponse};
 ///
 /// let avatar = Link::builder("http://webfinger.net/rel/avatar")
 ///     .href("https://example.com/avatar.png")
@@ -27,7 +27,7 @@ use crate::Rel;
 /// let profile = Link::builder("http://webfinger.net/rel/profile-page")
 ///     .href("https://example.com/profile/carol")
 ///     .build();
-/// let response = Response::builder("acct:carol@example.com")
+/// let response = WebFingerResponse::builder("acct:carol@example.com")
 ///     .alias("https://example.com/profile/carol")
 ///     .property("https://example.com/ns/role", "developer")
 ///     .link(avatar)
@@ -40,11 +40,11 @@ use crate::Rel;
 ///
 /// ```rust
 /// use axum::response::IntoResponse;
-/// use webfinger_rs::{Link, Request, Response};
+/// use webfinger_rs::{Link, WebFingerRequest, WebFingerResponse};
 ///
-/// async fn handler(request: Request) -> Response {
+/// async fn handler(request: WebFingerRequest) -> WebFingerResponse {
 ///     // ... handle the request ...
-///     Response::builder("acct:carol@example.com")
+///     WebFingerResponse::builder("acct:carol@example.com")
 ///         .alias("https://example.com/profile/carol")
 ///         .property("https://example.com/ns/role", "developer")
 ///         .link(
@@ -100,11 +100,11 @@ impl Response {
     /// # Examples
     ///
     /// ```rust
-    /// use webfinger_rs::{Link, Response};
+    /// use webfinger_rs::{Link, WebFingerResponse};
     ///
     /// let avatar =
     ///     Link::builder("http://webfinger.net/rel/avatar").href("https://example.com/avatar.png");
-    /// let response = Response::builder("acct:carol@example.com")
+    /// let response = WebFingerResponse::builder("acct:carol@example.com")
     ///     .alias("https://example.com/profile/carol")
     ///     .property("https://example.com/ns/role", "developer")
     ///     .link(avatar)

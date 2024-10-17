@@ -39,14 +39,14 @@ impl WebFingerRequest {
     /// # Examples
     ///
     /// ```rust
-    /// use webfinger_rs::Request;
+    /// use webfinger_rs::WebFingerRequest;
     ///
     /// # async fn run() -> Result<(), Box<dyn std::error::Error>> {
-    /// let query = Request::builder("acct:carol@example.com")?
+    /// let query = WebFingerRequest::builder("acct:carol@example.com")?
     ///     .host("example.com")
     ///     .rel("http://webfinger.net/rel/profile-page")
     ///     .build();
-    /// let response = query.execute().await?;
+    /// let response = query.execute_reqwest().await?;
     /// # Ok(())
     /// # }
     /// ```

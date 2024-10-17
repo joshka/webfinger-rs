@@ -1,7 +1,7 @@
 pub use {
     rel::Rel,
-    request::Request,
-    response::{Link, Response, Title},
+    request::{Builder as RequestBuilder, Request},
+    response::{Builder as ResponseBuilder, Link, LinkBuilder, Response, Title},
 };
 
 mod rel;
