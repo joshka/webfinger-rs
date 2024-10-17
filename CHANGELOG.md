@@ -3,6 +3,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.0.11] - 2024-10-17
+
+### 🚀 Features
+
+- Impl Display for response as json
+- Add colored help text, output, and allow logging verbosity to be set
+- Add actix support
+- Allow custom reqwest client
+
+### 🚜 Refactor
+
+- Simplify axum implementations
+
+### 📚 Documentation
+
+- Fix license heading level
+- Add symbolic links to contributing and license files
+- Update lib and readme docs
+
+### ⚙️ Miscellaneous Tasks
+
+- Add workflows and dependabot settings
+- Cleanup tests and docs (#3)
+- Cargo update
+
+## [0.0.10] - 2024-09-30
+
+### 📚 Documentation
+
+- Update readme using cargo-rdme
+
 ## [0.0.9] - 2024-09-30
 
 ### 📚 Documentation
