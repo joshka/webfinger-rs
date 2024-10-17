@@ -1,14 +1,12 @@
-use std::net::Ipv4Addr;
+use std::net::{Ipv4Addr, SocketAddr};
 
 use axum::{routing::get, Router};
-use color_eyre::Result;
+use axum_server::tls_rustls::RustlsConfig;
+use color_eyre::{eyre::Context, Result};
 use http::StatusCode;
-use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use tracing::{info, level_filters::LevelFilter};
-use webfinger_rs::{
-    Link, Rel, Request as WebFingerRequest, Response as WebFingerResponse, WELL_KNOWN_PATH,
-};
+use webfinger_rs::{Link, Rel, WebFingerRequest, WebFingerResponse, WELL_KNOWN_PATH};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -17,32 +15,35 @@ async fn main() -> Result<()> {
         .with_max_level(LevelFilter::DEBUG)
         .init();
 
-    let listener = bind().await?;
-    let router = router();
-    axum::serve(listener, router).await?;
+    let addr = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 3000);
+    let router = Router::new()
+        .route(WELL_KNOWN_PATH, get(webfinger))
+        .route_layer(TraceLayer::new_for_http())
+        .into_make_service();
+    let config = tls_config().await?;
+
+    info!("Listening at https://{addr:?}{WELL_KNOWN_PATH}?resource=acct:carol@example.com");
+    axum_server::bind_rustls(addr, config).serve(router).await?;
 
     Ok(())
 }
 
-async fn bind() -> Result<TcpListener> {
-    let addr = (Ipv4Addr::LOCALHOST, 3000);
-    let listener = TcpListener::bind(addr).await?;
-    let local_addr = listener.local_addr()?;
-    info!("Listening at http://{local_addr:?}{WELL_KNOWN_PATH}?resource=acct:carol@example.com");
-    Ok(listener)
-}
-
-fn router() -> Router {
-    Router::new()
-        .route(WELL_KNOWN_PATH, get(webfinger))
-        .fallback(not_found)
-        .route_layer(TraceLayer::new_for_http())
+/// Generate a self-signed certificate for localhost
+async fn tls_config() -> Result<RustlsConfig> {
+    let self_signed_cert = rcgen::generate_simple_self_signed(vec!["localhost".to_string()])
+        .wrap_err("failed to generate self signed certificat for localhost")?;
+    let cert = self_signed_cert.cert.der().to_vec();
+    let key = self_signed_cert.key_pair.serialize_der();
+    RustlsConfig::from_der(vec![cert], key)
+        .await
+        .wrap_err("failed to create tls config")
 }
 
 async fn webfinger(request: WebFingerRequest) -> axum::response::Result<WebFingerResponse> {
+    info!("fetching webfinger resource: {:?}", request);
     let subject = request.resource.to_string();
     if subject != "acct:carol@example.com" {
-        return Err(not_found().await.into());
+        return Err((StatusCode::NOT_FOUND, "Not Found").into());
     }
     let rel = Rel::new("http://webfinger.net/rel/profile-page");
     let response = if request.rels.is_empty() || request.rels.contains(&rel) {
@@ -52,8 +53,4 @@ async fn webfinger(request: WebFingerRequest) -> axum::response::Result<WebFinge
         WebFingerResponse::builder(subject).build()
     };
     Ok(response)
-}
-
-async fn not_found() -> (StatusCode, &'static str) {
-    (StatusCode::NOT_FOUND, "Not Found")
 }

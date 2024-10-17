@@ -6,7 +6,7 @@ use http::{
 };
 use percent_encoding::{utf8_percent_encode, AsciiSet};
 
-use crate::{Request, Response, WELL_KNOWN_PATH};
+use crate::{WebFingerRequest, WebFingerResponse, WELL_KNOWN_PATH};
 
 /// The set of values to percent encode
 ///
@@ -40,10 +40,10 @@ const QUERY: AsciiSet = percent_encoding::CONTROLS
     .add(b'=')
     .add(b'&');
 
-impl TryFrom<&Request> for PathAndQuery {
+impl TryFrom<&WebFingerRequest> for PathAndQuery {
     type Error = InvalidUri;
 
-    fn try_from(query: &Request) -> Result<PathAndQuery, InvalidUri> {
+    fn try_from(query: &WebFingerRequest) -> Result<PathAndQuery, InvalidUri> {
         let resource = query.resource.to_string();
         let resource = utf8_percent_encode(&resource, &QUERY).to_string();
         let mut path = WELL_KNOWN_PATH.to_owned();
@@ -58,10 +58,10 @@ impl TryFrom<&Request> for PathAndQuery {
     }
 }
 
-impl TryFrom<&Request> for Uri {
+impl TryFrom<&WebFingerRequest> for Uri {
     type Error = http::Error;
 
-    fn try_from(query: &Request) -> Result<Uri, http::Error> {
+    fn try_from(query: &WebFingerRequest) -> Result<Uri, http::Error> {
         let path_and_query = PathAndQuery::try_from(query)?;
 
         // HTTPS is mandatory
@@ -77,9 +77,9 @@ impl TryFrom<&Request> for Uri {
     }
 }
 
-impl TryFrom<&Response> for http::Response<()> {
+impl TryFrom<&WebFingerResponse> for http::Response<()> {
     type Error = http::Error;
-    fn try_from(_: &Response) -> Result<http::Response<()>, http::Error> {
+    fn try_from(_: &WebFingerResponse) -> Result<http::Response<()>, http::Error> {
         http::Response::builder()
             .header("Content-Type", "application/jrd+json")
             .body(())

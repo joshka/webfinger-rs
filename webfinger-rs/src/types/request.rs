@@ -1,4 +1,6 @@
 use http::Uri;
+use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 
 use crate::{Error, Rel};
 
@@ -43,7 +45,8 @@ use crate::{Error, Rel};
 /// # Response::new("")
 /// }
 /// ```
-#[derive(Debug)]
+#[serde_as]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Request {
     /// Query target.
     ///
@@ -52,6 +55,7 @@ pub struct Request {
     ///
     /// TODO: This could be a newtype that represents the resource and makes it easier to extract
     /// the values / parse into the right types (e.g. `acct:` URIs).
+    #[serde_as(as = "DisplayFromStr")]
     pub resource: Uri,
 
     /// The host to query

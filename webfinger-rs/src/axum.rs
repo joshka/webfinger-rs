@@ -13,11 +13,11 @@ use http::{
 };
 use tracing::trace;
 
-use crate::{Rel, Request, Response};
+use crate::{Rel, WebFingerRequest, WebFingerResponse};
 
 const JRD_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/jrd+json");
 
-impl IntoResponse for Response {
+impl IntoResponse for WebFingerResponse {
     /// Converts a WebFinger response into an axum response.
     ///
     /// This is used to convert a WebFinger [`Response`] into an axum response in an axum route
@@ -90,7 +90,7 @@ impl From<QueryRejection> for Rejection {
 }
 
 #[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for Request {
+impl<S: Send + Sync> FromRequestParts<S> for WebFingerRequest {
     type Rejection = Rejection;
 
     /// Extracts a `Request` from the request parts.
@@ -146,7 +146,7 @@ impl<S: Send + Sync> FromRequestParts<S> for Request {
         let resource = query.resource.parse().map_err(Rejection::InvalidResource)?;
         let rels = query.rel.clone().into_iter().map(Rel::from).collect();
 
-        Ok(Request {
+        Ok(WebFingerRequest {
             host,
             resource,
             rels,
@@ -169,8 +169,8 @@ mod tests {
         axum::Router::new().route(WELL_KNOWN_PATH, get(webfinger))
     }
 
-    async fn webfinger(request: Request) -> impl IntoResponse {
-        Response::builder(request.resource.to_string()).build()
+    async fn webfinger(request: WebFingerRequest) -> impl IntoResponse {
+        WebFingerResponse::builder(request.resource.to_string()).build()
     }
 
     #[tokio::test]

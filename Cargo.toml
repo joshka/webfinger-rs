@@ -17,6 +17,7 @@ readme = "README.md"
 webfinger-rs = { path = "webfinger-rs", version = "0.0.10" }
 
 axum = { version = "0.7.7", default-features = false }
+actix-web = { version = "4.9.0" }
 color-eyre = "0.6.3"
 http = "1.1.0"
 tokio = "1.40.0"

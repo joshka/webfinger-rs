@@ -1,7 +1,7 @@
 use http::Uri;
 use tracing::trace;
 
-use crate::{error::Error, Request, Response};
+use crate::{error::Error, WebFingerRequest, WebFingerResponse};
 
 struct EmptyBody;
 
@@ -12,10 +12,10 @@ impl From<EmptyBody> for reqwest::Body {
     }
 }
 
-impl TryFrom<&Request> for http::Request<EmptyBody> {
+impl TryFrom<&WebFingerRequest> for http::Request<EmptyBody> {
     type Error = http::Error;
 
-    fn try_from(query: &Request) -> Result<http::Request<EmptyBody>, http::Error> {
+    fn try_from(query: &WebFingerRequest) -> Result<http::Request<EmptyBody>, http::Error> {
         let uri = Uri::try_from(query)?;
         http::Request::builder()
             .method("GET")
@@ -24,7 +24,7 @@ impl TryFrom<&Request> for http::Request<EmptyBody> {
     }
 }
 
-impl Request {
+impl WebFingerRequest {
     /// Executes the WebFinger request.
     ///
     /// # Examples
@@ -42,7 +42,7 @@ impl Request {
     /// # }
     /// ```
     #[tracing::instrument]
-    pub async fn execute(&self) -> Result<Response, Error> {
+    pub async fn execute(&self) -> Result<WebFingerResponse, Error> {
         let client = reqwest::Client::new();
         let request = http::Request::try_from(self)?;
         let request = reqwest::Request::try_from(request)?;

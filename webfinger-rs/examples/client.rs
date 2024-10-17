@@ -1,6 +1,8 @@
+use webfinger_rs::WebFingerRequest;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let request = webfinger_rs::Request::builder("acct:carol@example.com")?
+    let request = WebFingerRequest::builder("acct:carol@example.com")?
         .host("example.com")
         .rel("http://webfinger.net/rel/profile-page")
         .build();

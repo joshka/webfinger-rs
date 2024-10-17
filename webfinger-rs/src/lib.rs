@@ -101,8 +101,13 @@
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
-pub use crate::{error::Error, types::*};
+pub use crate::{
+    error::Error,
+    types::{Link, Rel, Request as WebFingerRequest, Response as WebFingerResponse, Title},
+};
 
+#[cfg(feature = "actix")]
+mod actix;
 #[cfg(feature = "axum")]
 mod axum;
 mod error;

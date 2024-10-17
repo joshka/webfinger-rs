@@ -11,7 +11,7 @@ use colored_json::ToColoredJson;
 use http::Uri;
 use tracing::debug;
 use tracing_log::AsTrace;
-use webfinger_rs::{Rel, Request};
+use webfinger_rs::{Rel, WebFingerRequest};
 
 /// A simple CLI for fetching webfinger resources
 #[derive(Debug, Parser)]
@@ -60,11 +60,12 @@ async fn main() -> Result<()> {
 
 impl FetchCommand {
     async fn execute(&self) -> Result<()> {
-        let request = Request {
+        let request = WebFingerRequest {
             host: self.host()?,
             resource: self.resource()?,
             rels: self.link_relations(),
         };
+        debug!("fetching webfinger resource: {:?}", request);
         let response = request.execute().await?;
         let json = response.to_string().to_colored_json_auto()?;
         println!("{json}");
