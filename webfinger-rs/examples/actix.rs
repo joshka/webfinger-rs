@@ -9,6 +9,8 @@ use rustls::ServerConfig;
 use tracing::{info, level_filters::LevelFilter};
 use webfinger_rs::{Link, Rel, WebFingerRequest, WebFingerResponse, WELL_KNOWN_PATH};
 
+const SUBJECT: &str = "acct:carol@localhost";
+
 #[actix_web::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
@@ -21,7 +23,7 @@ async fn main() -> Result<()> {
     let config = tls_config()?;
     let server =
         HttpServer::new(|| App::new().service(webfinger)).bind_rustls_0_23(addrs, config)?;
-    info!("Listening at https://{addrs}{WELL_KNOWN_PATH}?resource=acct:carol@example.com");
+    info!("Listening at https://{addrs}{WELL_KNOWN_PATH}?resource={SUBJECT}");
     server.run().await?;
     Ok(())
 }
@@ -46,7 +48,7 @@ fn tls_config() -> Result<ServerConfig> {
 async fn webfinger(request: WebFingerRequest) -> actix_web::Result<WebFingerResponse> {
     info!("fetching webfinger resource: {:?}", request);
     let subject = request.resource.to_string();
-    if subject != "acct:carol@example.com" {
+    if subject != SUBJECT {
         let message = format!("{subject} does not exist");
         return Err(actix_web::error::ErrorNotFound(message))?;
     }

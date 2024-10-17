@@ -17,6 +17,7 @@ clap-verbosity = "2.1.0"
 color-eyre.workspace = true
 colored_json = "5.0.0"
 http.workspace = true
+reqwest.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing.workspace = true
 tracing-error.workspace = true

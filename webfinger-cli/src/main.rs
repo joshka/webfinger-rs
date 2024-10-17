@@ -9,7 +9,7 @@ use color_eyre::{
 };
 use colored_json::ToColoredJson;
 use http::Uri;
-use tracing::debug;
+use tracing::{debug, warn};
 use tracing_log::AsTrace;
 use webfinger_rs::{Rel, WebFingerRequest};
 
@@ -43,6 +43,10 @@ struct FetchCommand {
     /// This can be specified multiple times
     #[arg(short, long)]
     rel: Vec<String>,
+
+    /// Ignore TLS certificate verification errors
+    #[arg(long)]
+    insecure: bool,
 }
 
 #[tokio::main]
@@ -66,7 +70,13 @@ impl FetchCommand {
             rels: self.link_relations(),
         };
         debug!("fetching webfinger resource: {:?}", request);
-        let response = request.execute().await?;
+        if self.insecure {
+            warn!("ignoring TLS certificate verification errors");
+        }
+        let client = reqwest::Client::builder()
+            .danger_accept_invalid_certs(self.insecure)
+            .build()?;
+        let response = request.execute_reqwest_with_client(&client).await?;
         let json = response.to_string().to_colored_json_auto()?;
         println!("{json}");
         Ok(())

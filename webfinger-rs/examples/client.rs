@@ -6,7 +6,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .host("example.com")
         .rel("http://webfinger.net/rel/profile-page")
         .build();
-    let response = request.execute().await?;
+    let response = request.execute_reqwest().await?;
     dbg!(response);
     Ok(())
 }

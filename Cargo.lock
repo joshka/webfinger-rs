@@ -335,6 +335,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69f7f8c3906b62b754cd5326047894316021dcfe5a194c8ea52bdd94934a3457"
 
 [[package]]
+name = "async-convert"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d416feee97712e43152cd42874de162b8f9b77295b1c85e5d92725cc8310bae"
+dependencies = [
+ "async-trait",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1956,9 +1965,9 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
 name = "reqwest"
-version = "0.12.7"
+version = "0.12.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8f4955649ef5c38cc7f9e8aa41761d48fb9677197daea9984dc54f56aad5e63"
+checksum = "f713147fbe92361e52392c73b8c9e48c04c6625bce969ef54dc901e58e042a7b"
 dependencies = [
  "base64",
  "bytes",
@@ -2848,6 +2857,7 @@ dependencies = [
  "color-eyre",
  "colored_json",
  "http 1.1.0",
+ "reqwest",
  "tokio",
  "tracing",
  "tracing-error",
@@ -2862,6 +2872,7 @@ version = "0.0.10"
 dependencies = [
  "actix-tls",
  "actix-web",
+ "async-convert",
  "axum",
  "axum-extra",
  "axum-server",

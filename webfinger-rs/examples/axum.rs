@@ -8,6 +8,8 @@ use tower_http::trace::TraceLayer;
 use tracing::{info, level_filters::LevelFilter};
 use webfinger_rs::{Link, Rel, WebFingerRequest, WebFingerResponse, WELL_KNOWN_PATH};
 
+const SUBJECT: &str = "acct:carol@localhost";
+
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
@@ -22,7 +24,7 @@ async fn main() -> Result<()> {
         .into_make_service();
     let config = tls_config().await?;
 
-    info!("Listening at https://{addr:?}{WELL_KNOWN_PATH}?resource=acct:carol@example.com");
+    info!("Listening at https://{addr:?}{WELL_KNOWN_PATH}?resource={SUBJECT}");
     axum_server::bind_rustls(addr, config).serve(router).await?;
 
     Ok(())
@@ -42,8 +44,9 @@ async fn tls_config() -> Result<RustlsConfig> {
 async fn webfinger(request: WebFingerRequest) -> axum::response::Result<WebFingerResponse> {
     info!("fetching webfinger resource: {:?}", request);
     let subject = request.resource.to_string();
-    if subject != "acct:carol@example.com" {
-        return Err((StatusCode::NOT_FOUND, "Not Found").into());
+    if subject != SUBJECT {
+        let message = format!("{subject} does not exist");
+        return Err((StatusCode::NOT_FOUND, message).into());
     }
     let rel = Rel::new("http://webfinger.net/rel/profile-page");
     let response = if request.rels.is_empty() || request.rels.contains(&rel) {
