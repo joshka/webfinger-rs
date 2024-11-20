@@ -16,7 +16,7 @@ readme = "README.md"
 [workspace.dependencies]
 webfinger-rs = { path = "webfinger-rs", version = "0.0.11" }
 
-axum = { version = "0.7.7", default-features = false }
+axum = { version = "0.7.9", default-features = false }
 actix-web = { version = "4.9.0" }
 color-eyre = "0.6.3"
 http = "1.1.0"
