@@ -49,7 +49,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tower = "0.5.1"
 tower-http = { version = "0.6.2", features = ["trace"] }
 rcgen = "0.13.1"
-rustls = "0.23.16"
+rustls = "0.23.18"
 axum-server = { version = "0.7.1", features = ["tls-rustls"] }
 
 [package.metadata.docs.rs]
