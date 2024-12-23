@@ -29,7 +29,7 @@ axum = { workspace = true, optional = true, features = ["json"] }
 axum-extra = { version = "0.9.6", optional = true, features = ["query"] }
 document-features = "0.2.10"
 http.workspace = true
-nutype = { version = "0.5.0", features = ["serde"] }
+nutype = { version = "0.5.1", features = ["serde"] }
 percent-encoding = "2.3.1"
 reqwest = { workspace = true, optional = true, features = ["json"] }
 serde = { version = "1.0.216", features = ["derive"] }
