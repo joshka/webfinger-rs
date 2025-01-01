@@ -8,6 +8,7 @@ edition = "2021"
 description = "A WebFinger client and library written in Rust."
 license = "MIT OR Apache-2.0"
 version = "0.0.11"
+rust-version = "1.81.0"
 documentation = "https://docs.rs/webfinger-rs"
 repository = "https://github.com/joshka/webfinger-rs"
 keywords = ["webfinger", "client", "library", "rust", "cli"]
