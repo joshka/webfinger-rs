@@ -130,6 +130,12 @@ This project is licensed under either of:
 
 <!-- cargo-rdme end -->
 
+## MSRV
+
+This library is tested on the latest stable release of Rust. The minimum supported version is the
+previous stable release. The library rust version will only be updated when necessary. The library
+may work on older versions of Rust, but it is not guaranteed.
+
 ## Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the
