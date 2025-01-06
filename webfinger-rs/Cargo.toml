@@ -27,7 +27,7 @@ reqwest = ["dep:reqwest"]
 actix-web = { workspace = true, optional = true }
 async-convert = "1.0.0"
 axum = { workspace = true, optional = true, features = ["json"] }
-axum-extra = { version = "0.9.6", optional = true, features = ["query"] }
+axum-extra = { version = "0.10.0", optional = true, features = ["query"] }
 document-features = "0.2.10"
 http.workspace = true
 nutype = { version = "0.5.1", features = ["serde"] }
