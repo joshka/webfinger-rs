@@ -12,8 +12,8 @@ authors.workspace = true
 readme.workspace = true
 
 [dependencies]
-clap = { version = "4.5.23", features = ["derive", "wrap_help"] }
-clap-cargo = "0.14.1"
+clap = { version = "4.5.27", features = ["derive", "wrap_help"] }
+clap-cargo = "0.15.2"
 clap-verbosity = "2.1.0"
 color-eyre.workspace = true
 colored_json = "5.0.0"
