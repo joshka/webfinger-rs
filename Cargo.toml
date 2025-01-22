@@ -15,9 +15,7 @@ keywords = ["webfinger", "client", "library", "rust", "cli"]
 readme = "README.md"
 
 [workspace.dependencies]
-webfinger-rs = { path = "webfinger-rs", version = "0.0.11" }
-
-axum = { version = "0.7.9", default-features = false }
+axum = { version = "0.8.2", default-features = false }
 actix-web = { version = "4.9.0" }
 color-eyre = "0.6.3"
 http = "1.2.0"
@@ -26,3 +24,4 @@ tokio = "1.43.0"
 tracing = "0.1.41"
 tracing-error = "0.2.1"
 tracing-subscriber = "0.3.19"
+webfinger-rs = { path = "webfinger-rs", version = "0.0.11" }
