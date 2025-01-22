@@ -1,5 +1,4 @@
 use axum::{
-    async_trait,
     extract::FromRequestParts,
     response::{IntoResponse, Response as AxumResponse},
     Json,
@@ -77,7 +76,7 @@ impl IntoResponse for Rejection {
     fn into_response(self) -> AxumResponse {
         let message = match self {
             Rejection::MissingHost => "missing host".to_string(),
-            Rejection::InvalidQueryString(e) => format!("invalid query string: {e}"),
+            Rejection::InvalidQueryString(e) => format!("{e}"),
             Rejection::InvalidResource(e) => format!("invalid resource: {e}"),
         };
         (StatusCode::BAD_REQUEST, message).into_response()
@@ -90,7 +89,6 @@ impl From<QueryRejection> for Rejection {
     }
 }
 
-#[async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for WebFingerRequest {
     type Rejection = Rejection;
 
@@ -154,14 +152,29 @@ impl<S: Send + Sync> FromRequestParts<S> for WebFingerRequest {
 
 #[cfg(test)]
 mod tests {
-    use axum::body::Body;
-    use axum::routing::get;
+    use axum::{body::Body, routing::get};
+    use http::{Request, Response};
     use http_body_util::BodyExt;
     use tower::ServiceExt;
 
     use crate::WELL_KNOWN_PATH;
 
     use super::*;
+
+    type Result<T = (), E = Box<dyn std::error::Error>> = std::result::Result<T, E>;
+
+    /// A small helper trait to convert a response body into a string.
+    trait IntoText {
+        async fn into_text(self) -> Result<String>;
+    }
+
+    impl IntoText for Response<Body> {
+        async fn into_text(self) -> Result<String> {
+            let body = self.into_body().collect().await?.to_bytes();
+            let string = String::from_utf8(body.to_vec())?;
+            Ok(string)
+        }
+    }
 
     fn app() -> axum::Router {
         axum::Router::new().route(WELL_KNOWN_PATH, get(webfinger))
@@ -171,90 +184,77 @@ mod tests {
         WebFingerResponse::builder(request.resource.to_string()).build()
     }
 
+    const VALID_RESOURCE: &str = "acct:carol@example.com";
+
     #[tokio::test]
-    async fn valid_request() {
-        let uri = format!("https://example.com{WELL_KNOWN_PATH}?resource=acct:carol@example.com");
-        let request = http::Request::builder()
-            .uri(uri)
-            .body(Body::empty())
-            .unwrap();
-        let response = app().oneshot(request).await.unwrap();
+    async fn valid_request() -> Result {
+        let uri = format!("https://example.com{WELL_KNOWN_PATH}?resource={VALID_RESOURCE}");
+        let request = Request::builder().uri(uri).body(Body::empty())?;
+
+        let response = app().oneshot(request).await?;
 
         assert_eq!(response.status(), StatusCode::OK, "{response:?}");
-        let body = response.into_body().collect().await.unwrap().to_bytes();
-        assert_eq!(
-            &body[..],
-            br#"{"subject":"acct:carol@example.com","links":[]}"#,
-            "{body:?}"
-        );
+        let body = response.into_text().await?;
+        assert_eq!(body, r#"{"subject":"acct:carol@example.com","links":[]}"#);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn valid_request_with_host_header() {
-        let uri = format!("{WELL_KNOWN_PATH}?resource=acct:carol@example.com");
-        let request = http::Request::builder()
-            .uri(uri)
+    async fn valid_request_with_host_header() -> Result {
+        let request = Request::builder()
+            .uri(format!("{WELL_KNOWN_PATH}?resource={VALID_RESOURCE}"))
             .header(HOST, "example.com")
-            .body(Body::empty())
-            .unwrap();
-        let response = app().oneshot(request).await.unwrap();
+            .body(Body::empty())?;
+
+        let response = app().oneshot(request).await?;
 
         assert_eq!(response.status(), StatusCode::OK, "{response:?}");
-        let body = response.into_body().collect().await.unwrap().to_bytes();
-        assert_eq!(
-            &body[..],
-            br#"{"subject":"acct:carol@example.com","links":[]}"#,
-            "{body:?}"
-        );
+        let body = response.into_text().await?;
+        assert_eq!(body, r#"{"subject":"acct:carol@example.com","links":[]}"#);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn request_with_no_host() {
-        let uri = format!("{WELL_KNOWN_PATH}?resource=acct:carol@example.com");
-        let request = http::Request::builder()
-            .uri(uri)
-            .body(Body::empty())
-            .unwrap();
-        let response = app().oneshot(request).await.unwrap();
+    async fn request_with_no_host() -> Result {
+        let uri = format!("{WELL_KNOWN_PATH}?resource={VALID_RESOURCE}");
+        let request = Request::builder().uri(uri).body(Body::empty())?;
+
+        let response = app().oneshot(request).await?;
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{response:?}");
-        let body = response.into_body().collect().await.unwrap().to_bytes();
-        assert_eq!(&body[..], b"missing host", "{body:?}");
+        let body = response.into_text().await?;
+        assert_eq!(body, "missing host");
+        Ok(())
     }
 
     #[tokio::test]
-    async fn request_with_missing_resource() {
-        let request = http::Request::builder()
+    async fn request_with_missing_resource() -> Result {
+        let request = Request::builder()
             .uri(WELL_KNOWN_PATH)
             .header(HOST, "example.com")
-            .body(Body::empty())
-            .unwrap();
-        let response = app().oneshot(request).await.unwrap();
+            .body(Body::empty())?;
+
+        let response = app().oneshot(request).await?;
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{response:?}");
-        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body = response.into_text().await?;
         assert_eq!(
-            &body[..],
-            b"invalid query string: missing field `resource`",
-            "{body:?}"
+            body,
+            "Failed to deserialize query string: missing field `resource`",
         );
+        Ok(())
     }
 
     #[tokio::test]
-    async fn request_with_invalid_resource() {
+    async fn request_with_invalid_resource() -> Result {
         let uri = format!("https://example.com{WELL_KNOWN_PATH}?resource=%");
-        let request = http::Request::builder()
-            .uri(uri)
-            .body(Body::empty())
-            .unwrap();
-        let response = app().oneshot(request).await.unwrap();
+        let request = Request::builder().uri(uri).body(Body::empty())?;
+
+        let response = app().oneshot(request).await?;
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{response:?}");
-        let body = response.into_body().collect().await.unwrap().to_bytes();
-        assert_eq!(
-            &body[..],
-            b"invalid resource: invalid authority",
-            "{body:?}"
-        );
+        let body = response.into_text().await?;
+        assert_eq!(body, "invalid resource: invalid authority");
+        Ok(())
     }
 }
