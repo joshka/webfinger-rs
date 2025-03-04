@@ -15,7 +15,7 @@ keywords = ["webfinger", "client", "library", "rust", "cli"]
 readme = "README.md"
 
 [workspace.dependencies]
-axum = { version = "0.8.2", default-features = false }
+axum = { version = "0.8.1", default-features = false }
 actix-web = { version = "4.9.0" }
 color-eyre = "0.6.3"
 http = "1.2.0"
