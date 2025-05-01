@@ -1,15 +1,15 @@
 use std::net::{Ipv4Addr, SocketAddr};
 
-use axum::routing::get;
 use axum::Router;
+use axum::routing::get;
 use axum_server::tls_rustls::RustlsConfig;
-use color_eyre::eyre::Context;
 use color_eyre::Result;
+use color_eyre::eyre::Context;
 use http::StatusCode;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 use tracing::level_filters::LevelFilter;
-use webfinger_rs::{Link, Rel, WebFingerRequest, WebFingerResponse, WELL_KNOWN_PATH};
+use webfinger_rs::{Link, Rel, WELL_KNOWN_PATH, WebFingerRequest, WebFingerResponse};
 
 const SUBJECT: &str = "acct:carol@localhost";
 
