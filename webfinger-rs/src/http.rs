@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
-use http::uri::{InvalidUri, PathAndQuery, Scheme};
 use http::Uri;
-use percent_encoding::{utf8_percent_encode, AsciiSet};
+use http::uri::{InvalidUri, PathAndQuery, Scheme};
+use percent_encoding::{AsciiSet, utf8_percent_encode};
 
-use crate::{WebFingerRequest, WebFingerResponse, WELL_KNOWN_PATH};
+use crate::{WELL_KNOWN_PATH, WebFingerRequest, WebFingerResponse};
 
 /// The set of values to percent encode
 ///

@@ -1,6 +1,6 @@
 use http::Uri;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
 
 use crate::{Error, Rel};
 
@@ -185,7 +185,7 @@ mod tests {
         assert_eq!(
             uri.to_string(),
             "https://example.com/.well-known/webfinger?resource=acct:carol@example.com&rel=http://openid.net/specs/connect/1.0/issuer",
-            );
+        );
     }
 
     /// https://www.rfc-editor.org/rfc/rfc7033.html#section-3.2
