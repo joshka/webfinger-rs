@@ -1,12 +1,11 @@
 use std::net::{Ipv4Addr, SocketAddr};
 
 use actix_web::{get, App, HttpServer};
-use color_eyre::{
-    eyre::{eyre, Context},
-    Result,
-};
+use color_eyre::eyre::{eyre, Context};
+use color_eyre::Result;
 use rustls::ServerConfig;
-use tracing::{info, level_filters::LevelFilter};
+use tracing::info;
+use tracing::level_filters::LevelFilter;
 use webfinger_rs::{Link, Rel, WebFingerRequest, WebFingerResponse, WELL_KNOWN_PATH};
 
 const SUBJECT: &str = "acct:carol@localhost";

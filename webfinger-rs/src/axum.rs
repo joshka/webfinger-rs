@@ -1,15 +1,11 @@
-use axum::{
-    extract::FromRequestParts,
-    response::{IntoResponse, Response as AxumResponse},
-    Json,
-};
+use axum::extract::FromRequestParts;
+use axum::response::{IntoResponse, Response as AxumResponse};
+use axum::Json;
 use axum_extra::extract::{Query, QueryRejection};
-use http::{
-    header::{self, HOST},
-    request::Parts,
-    uri::InvalidUri,
-    HeaderValue, StatusCode,
-};
+use http::header::{self, HOST};
+use http::request::Parts;
+use http::uri::InvalidUri;
+use http::{HeaderValue, StatusCode};
 use tracing::trace;
 
 use crate::{Rel, WebFingerRequest, WebFingerResponse};
@@ -152,14 +148,14 @@ impl<S: Send + Sync> FromRequestParts<S> for WebFingerRequest {
 
 #[cfg(test)]
 mod tests {
-    use axum::{body::Body, routing::get};
+    use axum::body::Body;
+    use axum::routing::get;
     use http::{Request, Response};
     use http_body_util::BodyExt;
     use tower::ServiceExt;
 
-    use crate::WELL_KNOWN_PATH;
-
     use super::*;
+    use crate::WELL_KNOWN_PATH;
 
     type Result<T = (), E = Box<dyn std::error::Error>> = std::result::Result<T, E>;
 

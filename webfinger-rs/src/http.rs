@@ -1,9 +1,7 @@
 use std::str::FromStr;
 
-use http::{
-    uri::{InvalidUri, PathAndQuery, Scheme},
-    Uri,
-};
+use http::uri::{InvalidUri, PathAndQuery, Scheme};
+use http::Uri;
 use percent_encoding::{utf8_percent_encode, AsciiSet};
 
 use crate::{WebFingerRequest, WebFingerResponse, WELL_KNOWN_PATH};

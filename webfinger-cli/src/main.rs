@@ -3,10 +3,8 @@ use std::io;
 use clap::{Args, Parser};
 use clap_cargo::style::CLAP_STYLING;
 use clap_verbosity::{InfoLevel, Verbosity};
-use color_eyre::{
-    eyre::{bail, Context},
-    Result,
-};
+use color_eyre::eyre::{bail, Context};
+use color_eyre::Result;
 use colored_json::ToColoredJson;
 use http::Uri;
 use tracing::{debug, warn};

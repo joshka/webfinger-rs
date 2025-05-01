@@ -1,7 +1,5 @@
-use std::{
-    collections::HashMap,
-    fmt::{self, Debug},
-};
+use std::collections::HashMap;
+use std::fmt::{self, Debug};
 
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;

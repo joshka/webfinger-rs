@@ -1,6 +1,9 @@
-use std::{future::Future, pin::Pin};
+use std::future::Future;
+use std::pin::Pin;
 
-use actix_web::{dev::Payload, web::Json, FromRequest, HttpRequest, HttpResponse, Responder};
+use actix_web::dev::Payload;
+use actix_web::web::Json;
+use actix_web::{FromRequest, HttpRequest, HttpResponse, Responder};
 use tracing::trace;
 
 use crate::{WebFingerRequest, WebFingerResponse};

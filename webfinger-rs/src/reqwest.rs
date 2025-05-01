@@ -1,7 +1,8 @@
 use http::Uri;
 use tracing::trace;
 
-use crate::{error::Error, WebFingerRequest, WebFingerResponse};
+use crate::error::Error;
+use crate::{WebFingerRequest, WebFingerResponse};
 
 struct EmptyBody;
 

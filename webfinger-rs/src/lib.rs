@@ -115,19 +115,16 @@
 //!
 //! This project is licensed under either of:
 //!
-//! - Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or
-//!   <https://apache.org/licenses/LICENSE-2.0>)
+//! - Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or <https://apache.org/licenses/LICENSE-2.0>)
 //! - MIT license ([LICENSE-MIT](LICENSE-MIT) or <https://opensource.org/licenses/MIT>) at your
 //!   option.
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
-pub use crate::{
-    error::Error,
-    types::{
-        Link, LinkBuilder, Rel, Request as WebFingerRequest, RequestBuilder,
-        Response as WebFingerResponse, ResponseBuilder, Title,
-    },
+pub use crate::error::Error;
+pub use crate::types::{
+    Link, LinkBuilder, Rel, Request as WebFingerRequest, RequestBuilder,
+    Response as WebFingerResponse, ResponseBuilder, Title,
 };
 
 #[cfg(feature = "actix")]
