@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.14](https://github.com/joshka/webfinger-rs/compare/webfinger-cli-v0.0.13...webfinger-cli-v0.0.14) - 2025-05-01
+
+### Other
+
+- bump edition to 2024 and MSRV to 1.85 ([#59](https://github.com/joshka/webfinger-rs/pull/59))
+- add rustfmt and reformat code
+- release v0.0.13 ([#57](https://github.com/joshka/webfinger-rs/pull/57))
+
 ## [0.0.13](https://github.com/joshka/webfinger-rs/compare/webfinger-cli-v0.0.12...webfinger-cli-v0.0.13) - 2025-04-29
 
 ### Other
