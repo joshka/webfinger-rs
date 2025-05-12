@@ -48,9 +48,9 @@ http-body-util = "0.1.3"
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tower = "0.5.2"
-tower-http = { version = "0.6.2", features = ["trace"] }
+tower-http = { version = "0.6.4", features = ["trace"] }
 rcgen = "0.13.2"
-rustls = "0.23.26"
+rustls = "0.23.27"
 axum-server = { version = "0.7.2", features = ["tls-rustls"] }
 
 [package.metadata.docs.rs]
