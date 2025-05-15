@@ -25,8 +25,8 @@
 //! cargo install webfinger-cli
 //! webfinger acct:carol@example.com --rel http://webfinger.net/rel/avatar
 //! ```
-#![doc = document_features::document_features!()]
 //!
+#![cfg_attr(feature = "document-features", doc = concat!("## Features\n\n", document_features::document_features!()))]
 //! # Client Example
 //!
 //! The following example connects to the WebFinger server at `example.com` and requests the profile

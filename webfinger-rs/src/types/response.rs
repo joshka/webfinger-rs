@@ -93,7 +93,7 @@ impl Response {
         }
     }
 
-    /// Create a new [`WebFingerBuilder`] with the given subject.
+    /// Create a new [`Builder`] with the given subject.
     ///
     /// # Examples
     ///
