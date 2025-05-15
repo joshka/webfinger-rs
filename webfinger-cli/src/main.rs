@@ -2,13 +2,12 @@ use std::io;
 
 use clap::{Args, Parser};
 use clap_cargo::style::CLAP_STYLING;
-use clap_verbosity::{InfoLevel, Verbosity};
+use clap_verbosity_flag::{InfoLevel, Verbosity};
 use color_eyre::Result;
 use color_eyre::eyre::{Context, bail};
 use colored_json::ToColoredJson;
 use http::Uri;
 use tracing::{debug, warn};
-use tracing_log::AsTrace;
 use webfinger_rs::{Rel, WebFingerRequest};
 
 /// A simple CLI for fetching webfinger resources
@@ -51,9 +50,8 @@ struct FetchCommand {
 async fn main() -> Result<()> {
     color_eyre::install()?;
     let args = Cli::parse();
-    let log_level = args.verbosity.log_level_filter().as_trace();
     tracing_subscriber::fmt()
-        .with_max_level(log_level)
+        .with_max_level(args.verbosity)
         .with_writer(io::stderr)
         .init();
     args.fetch_command.execute().await?;
