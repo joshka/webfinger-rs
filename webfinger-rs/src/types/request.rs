@@ -46,7 +46,7 @@ use crate::{Error, Rel};
 /// }
 /// ```
 #[serde_as]
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct Request {
     /// Query target.
     ///

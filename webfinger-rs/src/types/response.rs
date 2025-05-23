@@ -53,7 +53,7 @@ use crate::Rel;
 /// }
 /// ```
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Response {
     /// The subject of the response.
     ///
@@ -204,7 +204,7 @@ impl Debug for Response {
 ///
 /// Defined in [RFC 7033 Section 4.4](https://www.rfc-editor.org/rfc/rfc7033.html#section-4.4.4)
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Link {
     /// The relation type of the link.
     ///
@@ -375,7 +375,7 @@ impl Debug for Link {
 ///
 /// let title = Title::new("en-us", "Carol's Profile");
 /// ```
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Title {
     /// The language of the title.
     ///
