@@ -14,7 +14,7 @@ readme.workspace = true
 [dependencies]
 clap = { version = "4.5.37", features = ["derive", "wrap_help"] }
 clap-cargo = "0.15.2"
-clap-verbosity-flag = { version = "3.0.2", default-features = false, features = [
+clap-verbosity-flag = { version = "3.0.3", default-features = false, features = [
     "tracing",
 ] }
 color-eyre.workspace = true
