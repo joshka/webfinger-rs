@@ -10,13 +10,11 @@ keywords.workspace = true
 authors.workspace = true
 
 [dependencies]
-clap = { version = "4.5.37", features = ["derive", "wrap_help"] }
-clap-cargo = "0.15.2"
-clap-verbosity-flag = { version = "3.0.2", default-features = false, features = [
-    "tracing",
-] }
+clap = { workspace = true, features = ["derive", "wrap_help"] }
+clap-cargo.workspace = true
+clap-verbosity-flag = { workspace = true, features = ["tracing"] }
 color-eyre.workspace = true
-colored_json = "5.0.0"
+colored_json.workspace = true
 http.workspace = true
 reqwest.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
