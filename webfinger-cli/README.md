@@ -13,10 +13,16 @@ protocol defined by [RFC 7033].
 
 ## Installation
 
-To install the `webfinger-cli`, you can use the following command:
+To install `webfinger-cli` from source, you can use the following command:
 
 ```shell
-cargo install webfinger-cli
+cargo install webfinger-cli --locked
+```
+
+Or use [cargo-binstall](https://github.com/cargo-bins/cargo-binstall) to install a precompiled binary:
+
+```shell
+cargo binstall webfinger-cli
 ```
 
 ## Usage
