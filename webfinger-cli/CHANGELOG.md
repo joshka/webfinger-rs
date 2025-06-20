@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.17](https://github.com/joshka/webfinger-rs/compare/webfinger-cli-v0.0.16...webfinger-cli-v0.0.17) - 2025-06-20
+
+### Other
+
+- move deps to workspace manifest and fix versions
+- improve install instructions
+
 ## [0.0.16](https://github.com/joshka/webfinger-rs/compare/webfinger-cli-v0.0.15...webfinger-cli-v0.0.16) - 2025-06-09
 
 ### Other
