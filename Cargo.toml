@@ -23,7 +23,7 @@ axum-extra = { version = "0.10" }
 axum-server = { version = "0.7" }
 clap = "4.5"
 clap-cargo = "0.15"
-clap-verbosity-flag = { version = "3.0.1", default-features = false }
+clap-verbosity-flag = { version = "3.0.4", default-features = false }
 color-eyre = "0.6"
 colored_json = "5.0"
 document-features = "0.2"
