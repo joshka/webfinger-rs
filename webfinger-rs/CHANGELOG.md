@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.21](https://github.com/joshka/webfinger-rs/compare/webfinger-rs-v0.0.20...webfinger-rs-v0.0.21) - 2025-11-29
+
+### Other
+
+- *(deps)* bump the cargo-dependencies group across 1 directory with 15 updates ([#91](https://github.com/joshka/webfinger-rs/pull/91))
+
 ## [0.0.18](https://github.com/joshka/webfinger-rs/compare/webfinger-rs-v0.0.17...webfinger-rs-v0.0.18) - 2025-07-06
 
 ### Other
