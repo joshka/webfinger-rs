@@ -32,7 +32,7 @@ fn tls_config() -> Result<ServerConfig> {
         .wrap_err("failed to generate self signed certificat for localhost")?;
     let cert_chain = self_signed_cert.cert.into();
     let key_der = self_signed_cert
-        .key_pair
+        .signing_key
         .serialize_der()
         .try_into()
         .map_err(|s: &str| eyre!(s))?;
