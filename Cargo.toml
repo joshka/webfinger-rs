@@ -7,7 +7,7 @@ authors = ["Josh McKinney"]
 edition = "2024"
 description = "A WebFinger client and library written in Rust."
 license = "MIT OR Apache-2.0"
-version = "0.0.21"
+version = "0.0.22"
 rust-version = "1.86"
 documentation = "https://docs.rs/webfinger-rs"
 repository = "https://github.com/joshka/webfinger-rs"
@@ -44,4 +44,4 @@ tower-http = { version = "0.6" }
 tracing = "0.1"
 tracing-error = "0.2"
 tracing-subscriber = "0.3"
-webfinger-rs = { path = "webfinger-rs", version = "0.0.21" }
+webfinger-rs = { path = "webfinger-rs", version = "0.0.22" }
