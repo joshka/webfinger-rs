@@ -9,10 +9,18 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions-dependencies:
+        patterns: ["*"]
   - package-ecosystem: "cargo"
     directory: "/"
     schedule:
       interval: "weekly"
+    versioning-strategy: increase-if-necessary
+    cooldown:
+      default-days: 7
     groups:
       cargo-dependencies:
         patterns: ["*"]
