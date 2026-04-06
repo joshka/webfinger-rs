@@ -38,7 +38,7 @@ serde = { version = "1.0.221", features = ["derive"] }
 serde_json = "1.0.45"
 serde_with = "3"
 thiserror = "2"
-tokio = "1.44"
+tokio = "1.51"
 tower = "0.5.2"
 tower-http = { version = "0.6.8" }
 tracing = "0.1.37"
