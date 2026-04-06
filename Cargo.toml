@@ -26,7 +26,6 @@ clap-cargo = "0.18"
 clap-verbosity-flag = { version = "3.0.1", default-features = false }
 color-eyre = "0.6"
 colored_json = "5"
-document-features = "0.2"
 http = "1.1"
 http-body-util = "0.1.2"
 nutype = { version = "0.6", features = ["serde"] }

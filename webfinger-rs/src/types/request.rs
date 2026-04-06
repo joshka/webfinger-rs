@@ -27,9 +27,12 @@ use crate::{Error, Rel};
 /// To execute the query, enable the `reqwest` feature and call `query.execute()`.
 ///
 /// ```rust
+/// # #[cfg(feature = "reqwest")]
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// # use webfinger_rs::WebFingerRequest;
-/// # let request = WebFingerRequest::builder("acct:carol@example.com")?.build();
+/// # let request = WebFingerRequest::builder("acct:carol@example.com")?
+/// #     .host("example.com")
+/// #     .build();
 /// let response = request.execute_reqwest().await?;
 /// # Ok(())
 /// # }

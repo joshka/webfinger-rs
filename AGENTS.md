@@ -48,4 +48,11 @@ should include a clear summary, linked issue when applicable, and note any doc o
 
 Treat `webfinger-rs/src/lib.rs` as the primary docs.rs landing page. Keep the top-level README
 shorter and adoption-focused. If you use `cargo-rdme`, make sure generated README content stays in
-sync with crate-level Rustdoc.
+sync with crate-level Rustdoc. In Rustdoc comments, start the first section heading at `#`, not
+`##`; reserve deeper heading levels for real subsections. When updating docs, regenerate them
+locally with the `just docs-rs` workflow, but prefer a non-interactive variant during verification
+so the command does not try to open a browser window. Treat `webfinger-rs/src/lib.rs` as the
+source of truth for generated README content and regenerate `README.md` after crate-doc changes.
+Rustdoc examples must compile under the relevant feature set, so gate feature-specific snippets
+explicitly. Public examples should be copy-paste friendly and should not rely on undeclared
+transitive dependencies.
