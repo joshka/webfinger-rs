@@ -36,9 +36,11 @@ files; use UpperCamelCase for types.
 
 Prefer focused unit tests near the code they cover. Keep doctests compiling when editing public
 docs. When changing feature-gated integrations, run `cargo test -p webfinger-rs --all-features`.
-When updating documentation, always run `cargo test --workspace` and `just docs-rs` as part of
-verification. Run `markdownlint-cli2` after changing Markdown files. Name tests after observable
-behavior, for example `valid_request_with_host_header`.
+For Rustdoc changes in feature-gated modules, also run `cargo test --locked --all-features --doc`
+so local verification matches CI's doctest coverage. When updating documentation, always run
+`cargo test --workspace` and `just docs-rs` as part of verification. Run `markdownlint-cli2`
+after changing Markdown files. Name tests after observable behavior, for example
+`valid_request_with_host_header`.
 
 ## Commit & Pull Request Guidelines
 

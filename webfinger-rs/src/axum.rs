@@ -1,3 +1,39 @@
+//! Axum integration for WebFinger request extraction and JRD responses.
+//!
+//! Enable the `axum` feature to:
+//!
+//! - extract [`WebFingerRequest`] from `GET` requests to [`crate::WELL_KNOWN_PATH`]; and
+//! - return [`WebFingerResponse`] directly from Axum handlers as `application/jrd+json`.
+//!
+//! The extractor expects the standard WebFinger query shape from [RFC 7033 section 4.1]:
+//!
+//! - a required `resource` query parameter; and
+//! - zero or more `rel` query parameters, encoded as repeated keys rather than a list.
+//!
+//! In practice, route handlers should usually be mounted like this:
+//!
+//! ```rust
+//! use axum::{Router, routing::get};
+//! use webfinger_rs::{WELL_KNOWN_PATH, WebFingerRequest, WebFingerResponse};
+//!
+//! async fn webfinger(_request: WebFingerRequest) -> WebFingerResponse {
+//!     WebFingerResponse::new("acct:carol@example.com")
+//! }
+//!
+//! let app = Router::<()>::new().route(WELL_KNOWN_PATH, get(webfinger));
+//! # let _ = app;
+//! ```
+//!
+//! If extraction fails, Axum receives [`Rejection`], which returns `400 Bad Request` with a plain
+//! text message for missing hosts, malformed query strings, or invalid resource URIs.
+//!
+//! See also [`WebFingerRequest`] for the extractor impl, [`WebFingerResponse`] for the responder
+//! impl, and the [Axum example] for a runnable server.
+//!
+//! [RFC 7033 section 4.1]: https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1
+//! [Axum example]:
+//!     https://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/axum.rs
+
 use axum::Json;
 use axum::extract::FromRequestParts;
 use axum::response::{IntoResponse, Response as AxumResponse};
@@ -13,31 +49,48 @@ use crate::{Rel, WebFingerRequest, WebFingerResponse};
 const JRD_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/jrd+json");
 
 impl IntoResponse for WebFingerResponse {
-    /// Converts a WebFinger response into an axum response.
+    /// Converts a [`WebFingerResponse`] into an Axum response.
     ///
-    /// This is used to convert a [`WebFingerResponse`] into an axum response in an axum route
-    /// handler. The response will be serialized as JSON and the `Content-Type` header will be set
-    /// to `application/jrd+json`.
+    /// This serializes the body as JSON and sets the `Content-Type` header to
+    /// `application/jrd+json`, which is the JRD media type used by WebFinger.
     ///
-    /// See the [axum example] for more information.
+    /// Handlers can therefore return [`WebFingerResponse`] directly without manually wrapping it in
+    /// [`axum::Json`] or setting the response header themselves.
+    ///
+    /// Mount the route at [`crate::WELL_KNOWN_PATH`] so the handler matches the standard WebFinger
+    /// endpoint path.
+    ///
+    /// See also the [`crate::axum`] module docs and the [Axum example].
     ///
     /// # Example
     ///
     /// ```rust
-    /// use axum::response::IntoResponse;
-    /// use webfinger_rs::{Link, WebFingerRequest, WebFingerResponse};
+    /// use axum::{Router, routing::get};
+    /// use http::StatusCode;
+    /// use webfinger_rs::{Link, Rel, WELL_KNOWN_PATH, WebFingerRequest, WebFingerResponse};
     ///
-    /// async fn handler(request: WebFingerRequest) -> impl IntoResponse {
-    ///     // ... your code to handle the webfinger request ...
+    /// async fn webfinger(request: WebFingerRequest) -> axum::response::Result<WebFingerResponse> {
     ///     let subject = request.resource.to_string();
-    ///     let link = Link::builder("http://webfinger.net/rel/profile-page")
-    ///         .href(format!("https://example.com/profile/{subject}"));
-    ///     WebFingerResponse::builder(subject).link(link).build()
+    ///     if subject != "acct:carol@example.com" {
+    ///         return Err((StatusCode::NOT_FOUND, "not found").into());
+    ///     }
+    ///
+    ///     let rel = Rel::new("http://webfinger.net/rel/profile-page");
+    ///     let response = if request.rels.is_empty() || request.rels.contains(&rel) {
+    ///         let link = Link::builder(rel).href("https://example.com/users/carol");
+    ///         WebFingerResponse::builder(subject).link(link).build()
+    ///     } else {
+    ///         WebFingerResponse::builder(subject).build()
+    ///     };
+    ///     Ok(response)
     /// }
+    ///
+    /// let app = Router::<()>::new().route(WELL_KNOWN_PATH, get(webfinger));
+    /// # let _ = app;
     /// ```
     ///
-    /// [axum example]:
-    ///     http://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/axum.rs
+    /// [Axum example]:
+    ///     https://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/axum.rs
     fn into_response(self) -> AxumResponse {
         ([(header::CONTENT_TYPE, JRD_CONTENT_TYPE)], Json(self)).into_response()
     }
@@ -54,8 +107,17 @@ struct RequestParams {
 
 /// Rejection type for WebFinger requests.
 ///
-/// This is used to represent errors that can occur when extracting a WebFinger request from the
-/// request parts in an axum route handler.
+/// This represents errors that can occur while extracting [`WebFingerRequest`] from Axum request
+/// parts.
+///
+/// Each variant maps to `400 Bad Request` when converted into an Axum response:
+///
+/// - [`Rejection::MissingHost`] when neither the request URI nor the `Host` header provides an
+///   authority;
+/// - [`Rejection::InvalidQueryString`] when the query string is missing `resource` or otherwise
+///   fails deserialization by [`axum_extra::extract::Query`]; and
+/// - [`Rejection::InvalidResource`] when `resource` is present but cannot be parsed as an
+///   [`http::Uri`].
 pub enum Rejection {
     /// The `resource` query parameter is missing or invalid.
     InvalidQueryString(String),
@@ -68,7 +130,12 @@ pub enum Rejection {
 }
 
 impl IntoResponse for Rejection {
-    /// Converts a WebFinger rejection into an axum response.
+    /// Converts the rejection into a `400 Bad Request` Axum response.
+    ///
+    /// The body is a plain text error message intended to make local debugging and simple server
+    /// implementations straightforward.
+    ///
+    /// See also the [`crate::axum`] module docs.
     fn into_response(self) -> AxumResponse {
         let message = match self {
             Rejection::MissingHost => "missing host".to_string(),
@@ -88,39 +155,47 @@ impl From<QueryRejection> for Rejection {
 impl<S: Send + Sync> FromRequestParts<S> for WebFingerRequest {
     type Rejection = Rejection;
 
-    /// Extracts a [`WebFingerRequest`] from the request parts.
+    /// Extracts a [`WebFingerRequest`] from Axum request parts.
+    ///
+    /// The extractor expects a request routed to [`crate::WELL_KNOWN_PATH`] with:
+    ///
+    /// - a `resource` query parameter containing the target resource URI; and
+    /// - zero or more repeated `rel` query parameters.
+    ///
+    /// Host resolution follows this order:
+    ///
+    /// 1. Use the authority from `parts.uri` when the request URI is absolute.
+    /// 1. Otherwise, fall back to the HTTP `Host` header.
+    ///
+    /// The extracted host, parsed resource, and collected relations are used to construct the
+    /// resulting [`WebFingerRequest`].
     ///
     /// # Errors
     ///
-    /// - If the request is missing the `Host` header, it will return a Bad Request response with
-    /// the message "missing host".
+    /// - If the request has neither a URI authority nor a `Host` header, extraction fails with
+    ///   `Rejection::MissingHost`.
+    /// - If the query string is missing `resource` or otherwise fails Axum query deserialization,
+    ///   extraction fails with `Rejection::InvalidQueryString`.
+    /// - If `resource` is present but cannot be parsed as a URI, extraction fails with
+    ///   `Rejection::InvalidResource`.
     ///
-    /// - If the `resource` query parameter is missing or invalid, it will return a Bad Request
-    /// response with the message "invalid resource: {error}".
-    ///
-    /// - If the `rel` query parameter is invalid, it will return a Bad Request response with the
-    /// message "invalid query string: {error}".
-    ///
-    /// See the [axum example] for more information.
+    /// See also the [`crate::axum`] module docs and the [Axum example].
     ///
     /// # Example
     ///
     /// ```rust
-    /// use axum::response::IntoResponse;
-    /// use webfinger_rs::WebFingerRequest;
+    /// use axum::{Router, routing::get};
+    /// use webfinger_rs::{WELL_KNOWN_PATH, WebFingerRequest, WebFingerResponse};
     ///
-    /// async fn handler(request: WebFingerRequest) -> impl IntoResponse {
-    ///     let WebFingerRequest {
-    ///         host,
-    ///         resource,
-    ///         rels,
-    ///     } = request;
-    ///     // ... your code to handle the webfinger request ...
-    /// # webfinger_rs::WebFingerResponse::new(resource.to_string())
+    /// async fn webfinger(request: WebFingerRequest) -> WebFingerResponse {
+    ///     WebFingerResponse::new(request.resource.to_string())
     /// }
+    ///
+    /// let app = Router::<()>::new().route(WELL_KNOWN_PATH, get(webfinger));
+    /// # let _ = app;
     /// ```
     ///
-    /// [axum example]:
+    /// [Axum example]:
     ///     https://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/axum.rs
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         trace!("request parts: {:?}", parts);
