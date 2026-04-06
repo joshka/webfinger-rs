@@ -3,7 +3,7 @@ name = "webfinger-rs"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description.workspace = true
+description = "WebFinger request and response types for Rust, with first-party Reqwest, Axum, and Actix Web integrations."
 license.workspace = true
 documentation.workspace = true
 repository.workspace = true
@@ -25,7 +25,6 @@ actix-web = { version = "4", optional = true }
 async-convert = "1"
 axum = { version = "0.8.4", optional = true, default-features = false, features = ["json"] }
 axum-extra = { version = "0.12", optional = true, default-features = false, features = ["query"] }
-document-features = { version = "0.2", optional = true }
 http = "1.1"
 nutype = { version = "0.6", features = ["serde"] }
 percent-encoding = "2.3"
