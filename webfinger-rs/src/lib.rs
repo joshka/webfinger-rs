@@ -61,7 +61,7 @@
 //! | --- | --- |
 //! | none | Core request/response types, builders, and URL conversion support |
 //! | `reqwest` | Client execution helpers and Reqwest request/response conversions |
-//! | `axum` | [`WebFingerRequest`] extraction and [`WebFingerResponse`] responses in Axum |
+//! | `axum` | [`WebFingerRequest`] extraction and [`WebFingerResponse`] responses in Axum via [`crate::axum`] |
 //! | `actix` | [`WebFingerRequest`] extraction and [`WebFingerResponse`] responses in Actix Web |
 //!
 //! # Protocol overview
@@ -122,6 +122,7 @@
 //!
 //! Enable the `axum` feature to extract [`WebFingerRequest`] from the incoming request and return
 //! [`WebFingerResponse`] directly from your handler. Mount the handler at [`WELL_KNOWN_PATH`].
+//! See also [`crate::axum`] and the [Axum example].
 //!
 //! ```rust
 //! # #[cfg(feature = "axum")]
@@ -148,6 +149,9 @@
 //! Router::new().route(WELL_KNOWN_PATH, get(webfinger))
 //! # }
 //! ```
+//!
+//! [Axum example]:
+//!     https://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/axum.rs
 //!
 //! # Actix quickstart
 //!
@@ -248,7 +252,7 @@ pub use crate::types::{
 #[cfg(feature = "actix")]
 mod actix;
 #[cfg(feature = "axum")]
-mod axum;
+pub mod axum;
 mod error;
 mod http;
 #[cfg(feature = "reqwest")]
