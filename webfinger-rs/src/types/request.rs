@@ -9,8 +9,48 @@ use crate::{Error, Rel};
 /// This represents the request portion of a WebFinger query that can be executed against a
 /// WebFinger server.
 ///
-/// See [RFC 7033 Section 4](https://www.rfc-editor.org/rfc/rfc7033.html#section-4) for more
-/// information.
+/// `Request` stores three pieces of information that map directly to the outgoing request URL:
+///
+/// - `resource` becomes the `resource=` query parameter.
+/// - `host` becomes the HTTPS authority for the request URL.
+/// - Each value in `rels` becomes another `rel=` query parameter, in insertion order.
+///
+/// In other words, this request:
+///
+/// ```rust
+/// use webfinger_rs::WebFingerRequest;
+///
+/// let request = WebFingerRequest::builder("acct:carol@example.com")?
+///     .host("example.com")
+///     .rel("http://webfinger.net/rel/profile-page")
+///     .rel("http://webfinger.net/rel/avatar")
+///     .build();
+/// # let _ = request;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// maps to this URL shape:
+///
+/// ```text
+/// https://example.com/.well-known/webfinger?resource=acct:carol@example.com&rel=http://webfinger.net/rel/profile-page&rel=http://webfinger.net/rel/avatar
+/// ```
+///
+/// `host` is required when you want to turn the request into an outgoing HTTP request, because the
+/// WebFinger endpoint is always built as `https://{host}/.well-known/webfinger?...`. For `acct:`
+/// resources, set `host` to the domain that serves WebFinger for that account. In the common case,
+/// that is the same domain that appears after `@` in the `acct:` URI.
+///
+/// `acct:` resources should include the full account URI, such as
+/// `acct:carol@example.com`, not just `carol@example.com` or `@carol@example.com`.
+///
+/// Repeated relation filters are encoded as repeated `rel` query parameters rather than as a
+/// comma-separated list.
+///
+/// See: [RFC 7033 section 4.1](https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1) for
+/// query-construction rules and parameter encoding.
+///
+/// See: [RFC 7565 section 3](https://www.rfc-editor.org/rfc/rfc7565.html#section-3) for the
+/// `acct:` URI syntax used by account resources.
 ///
 /// # Examples
 ///
@@ -56,12 +96,25 @@ pub struct Request {
     /// This is the URI of the resource to query. It will be stored in the `resource` query
     /// parameter.
     ///
+    /// For account lookups, use the full `acct:` URI, for example `acct:carol@example.com`.
+    ///
+    /// See: [RFC 7565 section 3](https://www.rfc-editor.org/rfc/rfc7565.html#section-3).
+    ///
     /// TODO: This could be a newtype that represents the resource and makes it easier to extract
     /// the values / parse into the right types (e.g. `acct:` URIs).
     #[serde_as(as = "DisplayFromStr")]
     pub resource: Uri,
 
-    /// The host to query
+    /// The host to query.
+    ///
+    /// This becomes the HTTPS authority of the final request URL. When converting this request to
+    /// an outgoing [`http::Uri`], the crate builds
+    /// `https://{host}/.well-known/webfinger?...`.
+    ///
+    /// Set this explicitly before executing the request or converting it into an outgoing URL.
+    /// For `acct:` resources, this is usually the domain part of the account identifier.
+    ///
+    /// See: [RFC 7033 section 4.1](https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1).
     ///
     /// TODO: this might be better as an `Option<Uri>` or `Option<Host>` or something similar. When
     /// the resource has a host part, it should be used unless this field is set.
@@ -70,7 +123,9 @@ pub struct Request {
     /// Link relation types
     ///
     /// This is a list of link relation types to query for. Each link relation type will be stored
-    /// in a `rel` query parameter.
+    /// in its own `rel` query parameter.
+    ///
+    /// See: [RFC 7033 section 4.1](https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1).
     pub rels: Vec<Rel>,
 }
 
@@ -119,6 +174,10 @@ impl Builder {
     ///
     /// This will use the given URI as the resource for the query.
     ///
+    /// For account lookups, pass the complete `acct:` URI, such as `acct:carol@example.com`.
+    ///
+    /// See: [RFC 7565 section 3](https://www.rfc-editor.org/rfc/rfc7565.html#section-3).
+    ///
     /// # Errors
     ///
     /// This will return an error if the URI is invalid.
@@ -135,12 +194,20 @@ impl Builder {
     }
 
     /// Sets the host for the query.
+    ///
+    /// This host is used as the authority in the final HTTPS request URL.
+    ///
+    /// See: [RFC 7033 section 4.1](https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1).
     pub fn host<S: Into<String>>(mut self, host: S) -> Self {
         self.request.host = host.into();
         self
     }
 
     /// Adds a link relation type to the query.
+    ///
+    /// Each call appends another `rel` query parameter to the outgoing request URL.
+    ///
+    /// See: [RFC 7033 section 4.1](https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1).
     ///
     /// # Examples
     ///
@@ -158,6 +225,49 @@ impl Builder {
     }
 
     /// Builds the WebFinger request.
+    ///
+    /// # Examples
+    ///
+    /// Build a request for an `acct:` resource and inspect the final URL:
+    ///
+    /// ```rust
+    /// use http::Uri;
+    /// use webfinger_rs::WebFingerRequest;
+    ///
+    /// let request = WebFingerRequest::builder("acct:carol@example.com")?
+    ///     .host("example.com")
+    ///     .rel("http://webfinger.net/rel/profile-page")
+    ///     .build();
+    ///
+    /// let uri = Uri::try_from(&request)?;
+    ///
+    /// assert_eq!(
+    ///     uri.to_string(),
+    ///     "https://example.com/.well-known/webfinger?resource=acct:carol@example.com&rel=http://webfinger.net/rel/profile-page",
+    /// );
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// Multiple relation filters become repeated `rel` query parameters:
+    ///
+    /// ```rust
+    /// use http::Uri;
+    /// use webfinger_rs::WebFingerRequest;
+    ///
+    /// let request = WebFingerRequest::builder("acct:carol@example.com")?
+    ///     .host("example.com")
+    ///     .rel("http://webfinger.net/rel/profile-page")
+    ///     .rel("http://webfinger.net/rel/avatar")
+    ///     .build();
+    ///
+    /// let uri = Uri::try_from(&request)?;
+    ///
+    /// assert_eq!(
+    ///     uri.to_string(),
+    ///     "https://example.com/.well-known/webfinger?resource=acct:carol@example.com&rel=http://webfinger.net/rel/profile-page&rel=http://webfinger.net/rel/avatar",
+    /// );
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn build(self) -> Request {
         self.request
     }

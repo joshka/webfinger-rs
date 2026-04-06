@@ -36,7 +36,8 @@ files; use UpperCamelCase for types.
 
 Prefer focused unit tests near the code they cover. Keep doctests compiling when editing public
 docs. When changing feature-gated integrations, run `cargo test -p webfinger-rs --all-features`.
-Name tests after observable behavior, for example `valid_request_with_host_header`.
+When updating documentation, always run `just docs-rs` as part of verification. Name tests after
+observable behavior, for example `valid_request_with_host_header`.
 
 ## Commit & Pull Request Guidelines
 
@@ -46,13 +47,17 @@ should include a clear summary, linked issue when applicable, and note any doc o
 
 ## Documentation Notes
 
-Treat `webfinger-rs/src/lib.rs` as the primary docs.rs landing page. Keep the top-level README
-shorter and adoption-focused. If you use `cargo-rdme`, make sure generated README content stays in
-sync with crate-level Rustdoc. In Rustdoc comments, start the first section heading at `#`, not
-`##`; reserve deeper heading levels for real subsections. When updating docs, regenerate them
-locally with the `just docs-rs` workflow, but prefer a non-interactive variant during verification
-so the command does not try to open a browser window. Treat `webfinger-rs/src/lib.rs` as the
-source of truth for generated README content and regenerate `README.md` after crate-doc changes.
-Rustdoc examples must compile under the relevant feature set, so gate feature-specific snippets
-explicitly. Public examples should be copy-paste friendly and should not rely on undeclared
-transitive dependencies.
+- Treat `webfinger-rs/src/lib.rs` as the primary docs.rs landing page.
+- Keep the top-level README shorter and adoption-focused.
+- If you use `cargo-rdme`, make sure generated README content stays in sync with crate-level
+  Rustdoc.
+- In Rustdoc comments, start the first section heading at `#`, not `##`; reserve deeper heading
+  levels for real subsections.
+- When updating docs, regenerate them locally with the `just docs-rs` workflow, and always run it
+  as part of verification.
+- Treat `webfinger-rs/src/lib.rs` as the source of truth for generated README content and
+  regenerate `README.md` after crate-doc changes.
+- Rustdoc examples must compile under the relevant feature set, so gate feature-specific snippets
+  explicitly.
+- Public examples should be copy-paste friendly and should not rely on undeclared transitive
+  dependencies.
