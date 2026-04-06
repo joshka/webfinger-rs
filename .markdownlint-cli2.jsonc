@@ -1,0 +1,19 @@
+{
+  "globs": [
+    "**/*.md"
+  ],
+  "ignores": [
+    "target/**",
+    ".jj/**",
+    ".git/**"
+  ],
+  "config": {
+    "line-length": {
+      "line_length": 100
+    },
+    "no-duplicate-heading": {
+      "siblings_only": true
+    },
+    "table-column-style": false
+  }
+}

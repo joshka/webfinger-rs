@@ -23,7 +23,7 @@ published behavior and project policy.
 - `cargo run -p webfinger-rs --example actix --features actix`: run the Actix example server.
 - `cargo fmt --all` and `cargo clippy --workspace --all-features --all-targets`: format and lint
   before opening a PR.
-- `markdownlint-cli2 README.md`: lint Markdown when editing docs.
+- `markdownlint-cli2`: lint Markdown files across the repository using the repo config.
 
 ## Coding Style & Naming Conventions
 
@@ -36,8 +36,9 @@ files; use UpperCamelCase for types.
 
 Prefer focused unit tests near the code they cover. Keep doctests compiling when editing public
 docs. When changing feature-gated integrations, run `cargo test -p webfinger-rs --all-features`.
-When updating documentation, always run `just docs-rs` as part of verification. Name tests after
-observable behavior, for example `valid_request_with_host_header`.
+When updating documentation, always run `cargo test --workspace` and `just docs-rs` as part of
+verification. Run `markdownlint-cli2` after changing Markdown files. Name tests after observable
+behavior, for example `valid_request_with_host_header`.
 
 ## Commit & Pull Request Guidelines
 
@@ -55,6 +56,8 @@ should include a clear summary, linked issue when applicable, and note any doc o
   levels for real subsections.
 - When updating docs, regenerate them locally with the `just docs-rs` workflow, and always run it
   as part of verification.
+- When adding RFC references in Rustdoc, match the citation style used in
+  `webfinger-rs/src/lib.rs`.
 - Treat `webfinger-rs/src/lib.rs` as the source of truth for generated README content and
   regenerate `README.md` after crate-doc changes.
 - Rustdoc examples must compile under the relevant feature set, so gate feature-specific snippets
