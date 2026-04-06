@@ -6,4 +6,5 @@ Only the latest available version on crates.io is supported
 
 ## Reporting a Vulnerability
 
-Report vulnerabilities at https://github.com/joshka/webfinger-rs/security/advisories/new
+Report vulnerabilities at
+[GitHub Security Advisories](https://github.com/joshka/webfinger-rs/security/advisories/new).
