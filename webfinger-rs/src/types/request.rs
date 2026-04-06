@@ -64,7 +64,7 @@ use crate::{Error, Rel};
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 ///
-/// To execute the query, enable the `reqwest` feature and call `query.execute()`.
+/// To execute the query, enable the `reqwest` feature and call [`Request::execute_reqwest`].
 ///
 /// ```rust
 /// # #[cfg(feature = "reqwest")]
