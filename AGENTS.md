@@ -47,6 +47,8 @@ after changing Markdown files. Name tests after observable behavior, for example
 Recent history uses imperative Conventional Commit-style subjects such as `chore: release v0.0.24`
 and `chore(deps): bump actions/checkout from 4 to 6`. Keep the first line short and scoped. PRs
 should include a clear summary, linked issue when applicable, and note any doc or example changes.
+When preparing a squash summary for an issue-linked PR, preserve the closing reference with a
+trailer such as `Closes #127`.
 
 ## Documentation Notes
 
