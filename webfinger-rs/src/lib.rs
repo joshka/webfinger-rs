@@ -62,7 +62,7 @@
 //! | none | Core request/response types, builders, and URL conversion support |
 //! | `reqwest` | Client execution helpers and Reqwest request/response conversions |
 //! | `axum` | [`WebFingerRequest`] extraction and [`WebFingerResponse`] responses in Axum via [`crate::axum`] |
-//! | `actix` | [`WebFingerRequest`] extraction and [`WebFingerResponse`] responses in Actix Web |
+//! | `actix` | [`WebFingerRequest`] extraction and [`WebFingerResponse`] responses in Actix Web via [`crate::actix`] |
 //!
 //! # Protocol overview
 //!
@@ -156,7 +156,8 @@
 //! # Actix quickstart
 //!
 //! Enable the `actix` feature to use the same request and response types in Actix Web handlers.
-//! As with the Axum integration, the route path should be [`WELL_KNOWN_PATH`].
+//! As with the Axum integration, the route path should be [`WELL_KNOWN_PATH`]. See also
+//! [`crate::actix`] and the [Actix example].
 //!
 //! ```rust
 //! # #[cfg(feature = "actix")]
@@ -192,6 +193,9 @@
 //! App::new().service(webfinger)
 //! # }
 //! ```
+//!
+//! [Actix example]:
+//!     https://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/actix.rs
 //!
 //! # Compatibility
 //!
@@ -250,7 +254,7 @@ pub use crate::types::{
 };
 
 #[cfg(feature = "actix")]
-mod actix;
+pub mod actix;
 #[cfg(feature = "axum")]
 pub mod axum;
 mod error;
