@@ -5,48 +5,39 @@
 [![Docs.rs badge]][docs]
 [![Deps.rs badge]][dependencies]
 
-<!-- cargo-rdme start -->
+`webfinger-rs` is a Rust library for building and serving [WebFinger] requests and responses with
+[RFC 7033]-shaped types and first-party integrations for [Reqwest], [Axum], and [Actix Web].
 
-`webfinger-rs` is a transport-agnostic [WebFinger] implementation for Rust, centered on the
-request and response types defined by [RFC 7033] with first-party integrations for [Reqwest],
-[Axum], and [Actix Web].
+Use it when you want one WebFinger implementation across clients, servers, and tests instead of
+recreating the protocol details in each framework.
 
-WebFinger is used to discover information about people or other entities on the internet using
-URI-based identifiers such as `acct:carol@example.com`. In practice, it is commonly used for
-[OpenID Connect Discovery], account discovery in federated systems like [Mastodon] and
-[ActivityPub], and for publishing identity-related metadata from your own site or service.
+The full guide and API reference live on [docs.rs][docs].
 
-This crate exists to provide one set of WebFinger types that can be reused across clients,
-servers, and tests instead of reimplementing the protocol details for each framework. It is
-intended to be practical as both a library dependency and an integration layer for modern Rust
-web stacks.
+## Why `webfinger-rs`
 
-It also fills a gap left by older WebFinger crates that are no longer actively maintained or
-are licensed in a way that is less convenient for reuse as a general-purpose Rust library.
+- Model WebFinger requests and JRD responses with reusable library types.
+- Execute client requests with Reqwest.
+- Expose WebFinger endpoints in Axum or Actix Web with the same request and response types.
+- Stay close to [RFC 7033] without pulling in a larger identity stack.
 
-## Why use `webfinger-rs`?
+## Supported integrations
 
-- Reusable request and response types shaped around RFC 7033.
-- Optional Reqwest client execution via [`WebFingerRequest::execute_reqwest`].
-- Optional Axum and Actix Web extractor/responder integrations.
-- A permissive dual license (`MIT OR Apache-2.0`) that fits typical library and application
-  usage.
+| Feature | What it enables |
+| --- | --- |
+| none | Core request and response types, builders, and URL conversion support |
+| `reqwest` | Client execution helpers and Reqwest request/response conversions |
+| `axum` | Axum extractor and responder integration |
+| `actix` | Actix Web extractor and responder integration |
 
-[RFC 7033]: https://www.rfc-editor.org/rfc/rfc7033.html
-[WebFinger]: https://en.wikipedia.org/wiki/WebFinger
-[Reqwest]: https://crates.io/crates/reqwest
-[Axum]: https://crates.io/crates/axum
-[Actix Web]: https://crates.io/crates/actix-web
-[OpenID Connect Discovery]: https://openid.net/specs/openid-connect-discovery-1_0.html
-[Mastodon]: https://docs.joinmastodon.org/spec/webfinger/
-[ActivityPub]: https://www.w3.org/TR/activitypub/
-[RFC 7033 section 4.1]: https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1
-[RFC 7033 section 4.4]: https://www.rfc-editor.org/rfc/rfc7033.html#section-4.4
-[RFC 7033 section 10.1]: https://www.rfc-editor.org/rfc/rfc7033.html#section-10.1
+Current integration targets:
+
+- Reqwest `0.13`
+- Axum `0.8`
+- Actix Web `4`
 
 ## Install
 
-Start with the core crate, then enable the integration feature you need:
+Add the crate with the feature set you need:
 
 ```shell
 cargo add webfinger-rs
@@ -55,60 +46,16 @@ cargo add webfinger-rs --features axum
 cargo add webfinger-rs --features actix
 ```
 
-The related CLI tool, [`webfinger-cli`], is useful for trying servers by hand:
+The companion CLI is useful for trying servers by hand:
 
 ```shell
 cargo install webfinger-cli
 webfinger acct:carol@example.com --rel http://webfinger.net/rel/avatar
 ```
 
-[`webfinger-cli`]: https://crates.io/crates/webfinger-cli
-
-## Feature matrix
-
-| Feature | What it enables |
-| --- | --- |
-| none | Core request/response types, builders, and URL conversion support |
-| `reqwest` | Client execution helpers and Reqwest request/response conversions |
-| `axum` | [`WebFingerRequest`] extraction and [`WebFingerResponse`] responses in Axum |
-| `actix` | [`WebFingerRequest`] extraction and [`WebFingerResponse`] responses in Actix Web |
-
-## Protocol overview
-
-A WebFinger query is an HTTPS `GET` against the well-known endpoint
-[`WELL_KNOWN_PATH`] with a required `resource` parameter and, optionally, one or more `rel`
-parameters.
-
-A request built by this crate today for `acct:carol@example.com` filtered to the profile-page
-relation looks like this:
-
-```text
-GET https://example.com/.well-known/webfinger?resource=acct:carol@example.com&rel=http://webfinger.net/rel/profile-page
-```
-
-See: [RFC 7033 section 4.1] for the query-construction rules and percent-encoding details.
-
-A successful JRD response might look like this:
-
-```json
-{
-  "subject": "acct:carol@example.com",
-  "links": [
-    {
-      "rel": "http://webfinger.net/rel/profile-page",
-      "href": "https://example.com/users/carol"
-    }
-  ]
-}
-```
-
-See: [RFC 7033 section 4.4] for the JRD structure.
-
 ## Client quickstart
 
-Enable the `reqwest` feature to execute WebFinger requests directly from the request type.
-The current API expects an explicit host, which should normally match the resource host when the
-resource URI has one.
+Enable `reqwest` to execute a request directly from `WebFingerRequest`:
 
 ```rust
 use webfinger_rs::WebFingerRequest;
@@ -125,10 +72,10 @@ async fn example() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## Axum quickstart
+## Server quickstart
 
-Enable the `axum` feature to extract [`WebFingerRequest`] from the incoming request and return
-[`WebFingerResponse`] directly from your handler. Mount the handler at [`WELL_KNOWN_PATH`].
+Enable `axum` to extract `WebFingerRequest` and return `WebFingerResponse` from a handler mounted
+at `/.well-known/webfinger`:
 
 ```rust
 use axum::{http::StatusCode, routing::get, Router};
@@ -153,10 +100,7 @@ async fn webfinger(request: WebFingerRequest) -> axum::response::Result<WebFinge
 Router::new().route(WELL_KNOWN_PATH, get(webfinger))
 ```
 
-## Actix quickstart
-
-Enable the `actix` feature to use the same request and response types in Actix Web handlers.
-As with the Axum integration, the route path should be [`WELL_KNOWN_PATH`].
+Enable `actix` to use the same types in Actix Web:
 
 ```rust
 use actix_web::{get, App};
@@ -182,41 +126,20 @@ async fn webfinger(request: WebFingerRequest) -> actix_web::Result<WebFingerResp
 App::new().service(webfinger)
 ```
 
-## Compatibility
+## Learn more
 
-The current first-party integration targets are:
+- API docs and deeper usage guide: [docs.rs/webfinger-rs][docs]
+- Runnable examples:
+  `cargo run -p webfinger-rs --example client --features reqwest`
+  `cargo run -p webfinger-rs --example axum --features axum`
+  `cargo run -p webfinger-rs --example actix --features actix`
+- CLI crate: [`webfinger-cli`](https://crates.io/crates/webfinger-cli)
 
-- Reqwest `0.13`
-- Axum `0.8`
-- Actix Web `4`
-
-The crate is currently pre-`0.1`, so API and compatibility adjustments may still land in minor
-releases while the integration surface settles. These version notes describe the currently
-integrated crates, not a full protocol-compliance matrix.
-
-## Limitations
-
-- Client execution is currently implemented only for Reqwest.
-- Server integrations are currently implemented only for Axum and Actix Web.
-- The crate focuses on RFC 7033 request/response handling and framework integration, not a full
-  identity stack around WebFinger.
-- The crate docs aim to stay grounded in RFC 7033, but they document the current implementation
-  rather than exhaustively enumerating every compliance detail.
-
-See: [RFC 7033 section 10.1] for the well-known path registration.
-
-## Examples
-
-Runnable examples are available in the repository:
-
-- `cargo run --example client --features reqwest`
-- `cargo run --example axum --features axum`
-- `cargo run --example actix --features actix`
-
-The server examples listen on `https://localhost:3000` and can be queried with:
+The example servers listen on `https://localhost:3000` and can be queried with:
 
 ```shell
-webfinger acct:carol@localhost localhost:3000 --insecure --rel http://webfinger.net/rel/profile-page
+webfinger acct:carol@localhost localhost:3000 --insecure \
+  --rel http://webfinger.net/rel/profile-page
 ```
 
 ## License
@@ -230,22 +153,24 @@ This project is licensed under either of:
 - MIT license ([LICENSE-MIT](LICENSE-MIT) or <https://opensource.org/licenses/MIT>) at your
   option
 
-<!-- cargo-rdme end -->
-
 ## MSRV
 
 This library is tested on the latest stable release of Rust. The minimum supported version is the
-previous stable release. The library rust version will only be updated when necessary. The library
-may work on older versions of Rust, but it is not guaranteed.
+previous stable release. The library may work on older versions, but that is not guaranteed.
 
-## Contribution
+## Contributing
 
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the
-work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
-additional terms or conditions.
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in
+the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without
+any additional terms or conditions.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+[WebFinger]: https://en.wikipedia.org/wiki/WebFinger
+[RFC 7033]: https://www.rfc-editor.org/rfc/rfc7033.html
+[Reqwest]: https://crates.io/crates/reqwest
+[Axum]: https://crates.io/crates/axum
+[Actix Web]: https://crates.io/crates/actix-web
 [Crates.io badge]: https://img.shields.io/crates/v/webfinger-rs?logo=rust&style=for-the-badge
 [License badge]: https://img.shields.io/crates/l/webfinger-rs?style=for-the-badge
 [Docs.rs badge]: https://img.shields.io/docsrs/webfinger-rs?logo=rust&style=for-the-badge
