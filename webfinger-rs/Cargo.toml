@@ -23,7 +23,7 @@ reqwest = ["dep:reqwest"]
 [dependencies]
 actix-web = { version = "4", optional = true }
 async-convert = "1"
-axum = { version = "0.8.4", optional = true, default-features = false, features = ["json"] }
+axum = { version = "0.8.9", optional = true, default-features = false, features = ["json"] }
 axum-extra = { version = "0.12", optional = true, default-features = false, features = ["query"] }
 http = "1.1"
 nutype = { version = "0.6", features = ["serde"] }
