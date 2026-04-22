@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.25](https://github.com/joshka/webfinger-rs/compare/webfinger-rs-v0.0.24...webfinger-rs-v0.0.25) - 2026-04-22
+
+### Other
+
+- *(deps)* bump the cargo-dependencies group across 1 directory with 5 updates ([#142](https://github.com/joshka/webfinger-rs/pull/142))
+- refresh README front page
+- clarify actix integration ([#138](https://github.com/joshka/webfinger-rs/pull/138))
+- clarify axum integration
+- clarify reqwest execution ([#136](https://github.com/joshka/webfinger-rs/pull/136))
+- document request URL semantics
+- rewrite docs.rs landing page and README
+
 ## [0.0.24](https://github.com/joshka/webfinger-rs/compare/webfinger-rs-v0.0.23...webfinger-rs-v0.0.24) - 2026-03-30
 
 ### Other
