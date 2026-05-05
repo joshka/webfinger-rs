@@ -5,7 +5,7 @@ use color_eyre::Result;
 use color_eyre::eyre::{Context, eyre};
 use rustls::ServerConfig;
 use tracing::info;
-use tracing::level_filters::LevelFilter;
+use tracing_subscriber::EnvFilter;
 use webfinger_rs::{Link, Rel, WELL_KNOWN_PATH, WebFingerRequest, WebFingerResponse};
 
 const SUBJECT: &str = "acct:carol@localhost";
@@ -13,9 +13,7 @@ const SUBJECT: &str = "acct:carol@localhost";
 #[actix_web::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
-    let env_filter = tracing_subscriber::EnvFilter::builder()
-        .with_default_directive(LevelFilter::INFO.into())
-        .from_env_lossy();
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
     tracing_subscriber::fmt().with_env_filter(env_filter).init();
 
     let addrs = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 3000);
