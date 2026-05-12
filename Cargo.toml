@@ -28,18 +28,18 @@ color-eyre = "0.6"
 colored_json = "5"
 http = "1.1"
 http-body-util = "0.1.2"
-nutype = { version = "0.6", features = ["serde"] }
+nutype = { version = "0.7", features = ["serde"] }
 percent-encoding = "2.3"
 rcgen = "0.14"
 reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"] }
-rustls = "0.23.27"
+rustls = "0.23.40"
 serde = { version = "1.0.221", features = ["derive"] }
 serde_json = "1.0.45"
 serde_with = "3"
 thiserror = "2"
-tokio = "1.41"
+tokio = "1.52"
 tower = "0.5.2"
-tower-http = { version = "0.6.8" }
+tower-http = { version = "0.6.10" }
 tracing = "0.1.37"
 tracing-error = "0.2"
 tracing-subscriber = "0.3"
