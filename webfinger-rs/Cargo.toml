@@ -26,7 +26,7 @@ async-convert = "1"
 axum = { version = "0.8", optional = true, default-features = false, features = ["json"] }
 axum-extra = { version = "0.12", optional = true, default-features = false, features = ["query"] }
 http = "1.1"
-nutype = { version = "0.6", features = ["serde"] }
+nutype = { version = "0.7", features = ["serde"] }
 percent-encoding = "2.3"
 reqwest = { version = "0.13", optional = true, default-features = false, features = ["json", "rustls-no-provider"] }
 serde = { version = "1.0.221", features = ["derive"] }
