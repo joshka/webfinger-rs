@@ -36,7 +36,7 @@ async fn main() -> Result<()> {
 /// Generate a self-signed certificate for localhost
 async fn tls_config() -> Result<RustlsConfig> {
     let self_signed_cert = rcgen::generate_simple_self_signed(vec!["localhost".to_string()])
-        .wrap_err("failed to generate self signed certificat for localhost")?;
+        .wrap_err("failed to generate self signed certificate for localhost")?;
     let cert = self_signed_cert.cert.der().to_vec();
     let key = self_signed_cert.signing_key.serialize_der();
     RustlsConfig::from_der(vec![cert], key)

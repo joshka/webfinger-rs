@@ -27,7 +27,7 @@ async fn main() -> Result<()> {
 
 fn tls_config() -> Result<ServerConfig> {
     let self_signed_cert = rcgen::generate_simple_self_signed(vec!["localhost".to_string()])
-        .wrap_err("failed to generate self signed certificat for localhost")?;
+        .wrap_err("failed to generate self signed certificate for localhost")?;
     let cert_chain = self_signed_cert.cert.into();
     let key_der = self_signed_cert
         .signing_key
