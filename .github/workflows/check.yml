@@ -6,6 +6,9 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -15,58 +18,300 @@ concurrency:
 
 jobs:
   fmt:
-    name: stable / fmt
+    name: Rustfmt
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
+          persist-credentials: false
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@67ef31d5b988238dd797d409d6f9574278e20537
+        with:
+          toolchain: stable
           components: rustfmt
-      - name: Run cargo fmt
-        run: cargo fmt -- --check
-      - name: Cache Cargo dependencies
-        uses: Swatinem/rust-cache@v2
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
   clippy:
-    name: ${{ matrix.toolchain }} / clippy
+    name: Clippy
     runs-on: ubuntu-latest
-    permissions:
-      checks: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@67ef31d5b988238dd797d409d6f9574278e20537
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features --workspace -- -D warnings
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@67ef31d5b988238dd797d409d6f9574278e20537
+        with:
+          toolchain: stable
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+      - name: Test workspace
+        run: cargo test --workspace --all-features
+      - name: Test docs
+        run: cargo test --workspace --all-features --doc
+
+  os-check:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        toolchain: [stable, beta]
+        os:
+          - macos-latest
+          - windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
-          components: clippy
-      - name: Run clippy action
-        uses: clechasseur/rs-clippy-check@v5
+          persist-credentials: false
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@67ef31d5b988238dd797d409d6f9574278e20537
+        with:
+          toolchain: stable
       - name: Cache Cargo dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+      - name: Test workspace
+        run: cargo test --locked --all-features --all-targets
+
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@67ef31d5b988238dd797d409d6f9574278e20537
+        with:
+          toolchain: stable
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+      - name: Check workspace
+        run: cargo check --all-targets --all-features --workspace
+
   doc:
-    name: nightly / doc
+    name: Docs
     runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: --cfg docsrs -D warnings
     steps:
-      - uses: actions/checkout@v7
-      - name: Install Rust nightly
-        uses: dtolnay/rust-toolchain@nightly
-      - name: Run cargo doc
-        run: cargo doc --no-deps --all-features
-        env:
-          RUSTDOCFLAGS: --cfg docsrs
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@67ef31d5b988238dd797d409d6f9574278e20537
+        with:
+          toolchain: nightly
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+      - name: Build docs
+        run: cargo doc --all-features --workspace --no-deps
+
   msrv:
-    name: 1.88.0 / check
+    name: MSRV
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - name: Install 1.88.0
-        uses: dtolnay/rust-toolchain@master
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@67ef31d5b988238dd797d409d6f9574278e20537
         with:
           toolchain: 1.88.0
-      - name: cargo +1.88.0 check
-        run: cargo check
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+      - name: Check workspace
+        run: cargo check --workspace
+
+  minimal-versions:
+    name: Minimal Versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@67ef31d5b988238dd797d409d6f9574278e20537
+        with:
+          toolchain: stable
+      - name: Install cargo-minimal-versions
+        uses: taiki-e/install-action@bffeee26d4db9be238a4ea78d8826604ebcb594d
+        with:
+          tool: cargo-minimal-versions
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@bffeee26d4db9be238a4ea78d8826604ebcb594d
+        with:
+          tool: cargo-hack
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+      - name: Check direct minimal versions
+        run: cargo minimal-versions check --direct --workspace --all-features --all-targets
+
+  deny-advisories:
+    name: Advisories
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@bffeee26d4db9be238a4ea78d8826604ebcb594d
+        with:
+          tool: cargo-deny
+      - name: Check advisories
+        run: cargo deny check advisories
+
+  deny-policy:
+    name: Dependency Policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@bffeee26d4db9be238a4ea78d8826604ebcb594d
+        with:
+          tool: cargo-deny
+      - name: Check bans, licenses, and sources
+        run: cargo deny check bans licenses sources
+
+  workflows:
+    name: Workflows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Install actionlint
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+      - name: Install zizmor
+        uses: taiki-e/install-action@bffeee26d4db9be238a4ea78d8826604ebcb594d
+        with:
+          tool: zizmor
+      - name: Run actionlint
+        run: actionlint -color=false .github/workflows/*.yml
+      - name: Run zizmor
+        run: zizmor .github/workflows
+
+  markdown:
+    name: Markdown
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Install markdownlint-cli2
+        run: npm install --global markdownlint-cli2@0.22.1
+      - name: Lint Markdown
+        run: markdownlint-cli2 "**/*.md"
+
+  typos:
+    name: Typos
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Install typos
+        uses: taiki-e/install-action@bffeee26d4db9be238a4ea78d8826604ebcb594d
+        with:
+          tool: typos-cli
+      - name: Check spelling
+        run: typos
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@67ef31d5b988238dd797d409d6f9574278e20537
+        with:
+          toolchain: stable
+          components: llvm-tools-preview
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@bffeee26d4db9be238a4ea78d8826604ebcb594d
+        with:
+          tool: cargo-llvm-cov
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+      - name: Generate coverage
+        run: cargo llvm-cov --locked --all-features --lcov --output-path lcov.info
+      - name: Record Rust version
+        run: echo "RUST=$(rustc --version)" >> "$GITHUB_ENV"
+      - name: Upload coverage
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          env_vars: OS,RUST
+
+  required:
+    name: Required
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    needs:
+      - fmt
+      - clippy
+      - test
+      - os-check
+      - check
+      - doc
+      - msrv
+      - minimal-versions
+      - deny-advisories
+      - deny-policy
+      - workflows
+      - markdown
+      - typos
+    steps:
+      - name: Check required jobs
+        env:
+          NEEDS: ${{ toJson(needs) }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+
+          failed = {
+              name: job["result"]
+              for name, job in json.loads(os.environ["NEEDS"]).items()
+              if job["result"] != "success"
+          }
+          if failed:
+              print(f"Required jobs failed: {failed}", file=sys.stderr)
+              sys.exit(1)
+          PY

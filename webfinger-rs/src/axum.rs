@@ -139,7 +139,7 @@ impl IntoResponse for Rejection {
     fn into_response(self) -> AxumResponse {
         let message = match self {
             Rejection::MissingHost => "missing host".to_string(),
-            Rejection::InvalidQueryString(e) => format!("{e}"),
+            Rejection::InvalidQueryString(e) => e.to_string(),
             Rejection::InvalidResource(e) => format!("invalid resource: {e}"),
         };
         (StatusCode::BAD_REQUEST, message).into_response()

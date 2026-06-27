@@ -2,38 +2,54 @@ name: Release-plz
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   release:
     name: Release-plz release
-    if: ${{ github.repository_owner == 'joshka' }}
+    if: >-
+      ${{
+        github.repository_owner == 'joshka' &&
+        (
+          github.event_name == 'workflow_dispatch' ||
+          startsWith(github.event.head_commit.message, 'chore: release')
+        )
+      }}
     runs-on: ubuntu-latest
     environment: release
     permissions:
       contents: write
       id-token: write
     steps:
-      - &checkout
-        name: Checkout repository
-        uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           fetch-depth: 0
           persist-credentials: false
-      - &install-rust
-        name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-      - name: Run release-plz (release)
-        uses: release-plz/action@v0.5
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@67ef31d5b988238dd797d409d6f9574278e20537
+        with:
+          toolchain: stable
+      - name: Run release-plz release
+        uses: release-plz/action@e8792575c7f2366cf6ff3ccc33ead9ace5b691c7
         with:
           command: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  release_pr:
+  release-pr:
     name: Release-plz PR
-    if: ${{ github.repository_owner == 'joshka' }}
+    if: >-
+      ${{
+        github.repository_owner == 'joshka' &&
+        github.event_name == 'push' &&
+        !startsWith(github.event.head_commit.message, 'chore: release')
+      }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -42,10 +58,17 @@ jobs:
       group: release-plz-${{ github.ref }}
       cancel-in-progress: false
     steps:
-      - *checkout
-      - *install-rust
-      - name: Run release-plz (release-pr)
-        uses: release-plz/action@v0.5
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@67ef31d5b988238dd797d409d6f9574278e20537
+        with:
+          toolchain: stable
+      - name: Run release-plz release-pr
+        uses: release-plz/action@e8792575c7f2366cf6ff3ccc33ead9ace5b691c7
         with:
           command: release-pr
         env:
