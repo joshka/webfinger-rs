@@ -159,11 +159,11 @@ jobs:
         with:
           toolchain: stable
       - name: Install cargo-minimal-versions
-        uses: taiki-e/install-action@bffeee26d4db9be238a4ea78d8826604ebcb594d
+        uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6
         with:
           tool: cargo-minimal-versions
       - name: Install cargo-hack
-        uses: taiki-e/install-action@bffeee26d4db9be238a4ea78d8826604ebcb594d
+        uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6
         with:
           tool: cargo-hack
       - name: Cache Cargo dependencies
@@ -180,7 +180,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install cargo-deny
-        uses: taiki-e/install-action@bffeee26d4db9be238a4ea78d8826604ebcb594d
+        uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6
         with:
           tool: cargo-deny
       - name: Check advisories
@@ -195,7 +195,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install cargo-deny
-        uses: taiki-e/install-action@bffeee26d4db9be238a4ea78d8826604ebcb594d
+        uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6
         with:
           tool: cargo-deny
       - name: Check bans, licenses, and sources
@@ -214,7 +214,7 @@ jobs:
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - name: Install zizmor
-        uses: taiki-e/install-action@bffeee26d4db9be238a4ea78d8826604ebcb594d
+        uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6
         with:
           tool: zizmor
       - name: Run actionlint
@@ -244,7 +244,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install typos
-        uses: taiki-e/install-action@bffeee26d4db9be238a4ea78d8826604ebcb594d
+        uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6
         with:
           tool: typos-cli
       - name: Check spelling
@@ -264,7 +264,7 @@ jobs:
           toolchain: stable
           components: llvm-tools-preview
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@bffeee26d4db9be238a4ea78d8826604ebcb594d
+        uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6
         with:
           tool: cargo-llvm-cov
       - name: Cache Cargo dependencies
