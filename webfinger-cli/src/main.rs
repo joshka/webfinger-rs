@@ -82,11 +82,17 @@ impl FetchCommand {
         // TODO use correct normalization of host names
         if let Some(host) = self.host.as_deref() {
             Ok(host.to_string())
-        } else if let Some((_, host)) = self.resource.split_once('@') {
-            debug!("extracted host from resource: {}", host);
-            Ok(host.to_string())
         } else {
-            bail!("no host provided")
+            let resource = self.resource()?;
+            if let Some(host) = resource.host() {
+                debug!("extracted host from resource URI: {}", host);
+                Ok(host.to_string())
+            } else if let Some((_, host)) = self.resource.split_once('@') {
+                debug!("extracted host from acct resource: {}", host);
+                Ok(host.to_string())
+            } else {
+                bail!("no host provided")
+            }
         }
     }
 
@@ -96,5 +102,50 @@ impl FetchCommand {
 
     fn link_relations(&self) -> Vec<Rel> {
         self.rel.iter().map(|s| Rel::from(s.as_str())).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Builds a fetch command with only the resource set.
+    fn command(resource: &str) -> FetchCommand {
+        FetchCommand {
+            resource: resource.to_string(),
+            host: None,
+            rel: Vec::new(),
+            insecure: false,
+        }
+    }
+
+    /// Uses the URI authority when the resource has one.
+    ///
+    /// WebFinger resources are not always `acct:` URIs. Parsing the URI before falling back to
+    /// `acct:` splitting prevents `@` inside an HTTPS path from being mistaken for the request host.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1>.
+    #[test]
+    fn host_uses_resource_uri_authority() {
+        let command = command("https://example.org/users/@carol");
+
+        let host = command.host().unwrap();
+
+        assert_eq!(host, "example.org");
+    }
+
+    /// Falls back to the account authority for `acct:` resources.
+    ///
+    /// `acct:` URIs do not expose a URI host through the `http::Uri` API, so the CLI keeps the
+    /// WebFinger account-address fallback for the common `acct:user@example.org` case.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7565.html#section-3>.
+    #[test]
+    fn host_falls_back_to_acct_authority() {
+        let command = command("acct:carol@example.org");
+
+        let host = command.host().unwrap();
+
+        assert_eq!(host, "example.org");
     }
 }
