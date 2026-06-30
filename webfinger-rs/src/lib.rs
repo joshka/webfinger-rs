@@ -259,7 +259,7 @@ pub mod actix;
 pub mod axum;
 mod error;
 mod http;
-#[cfg(test)]
+#[cfg(any(feature = "actix", feature = "axum", test))]
 mod query;
 #[cfg(feature = "reqwest")]
 mod reqwest;

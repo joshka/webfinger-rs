@@ -19,7 +19,6 @@ actix-tls = { version = "3.4", features = ["rustls-0_23"] }
 actix-web = { version = "4.6", default-features = false, features = ["rustls-0_23"] }
 async-convert = "1"
 axum = { version = "0.8", default-features = false }
-axum-extra = { version = "0.12", default-features = false }
 axum-server = { version = "0.8" }
 clap = "4.5.48"
 clap-cargo = "0.18"
