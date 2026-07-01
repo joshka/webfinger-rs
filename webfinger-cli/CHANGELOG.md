@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.27](https://github.com/joshka/webfinger-rs/compare/webfinger-cli-v0.0.26...webfinger-cli-v0.0.27) - 2026-07-01
+
+### Other
+
+- Infer CLI host from URI authority ([#162](https://github.com/joshka/webfinger-rs/pull/162))
+
 ## [0.0.26](https://github.com/joshka/webfinger-rs/compare/webfinger-cli-v0.0.25...webfinger-cli-v0.0.26) - 2026-06-27
 
 ### Other
