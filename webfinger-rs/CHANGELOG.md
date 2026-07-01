@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.27](https://github.com/joshka/webfinger-rs/compare/webfinger-rs-v0.0.26...webfinger-rs-v0.0.27) - 2026-07-01
+
+### Other
+
+- Preserve percent escapes in URLs ([#161](https://github.com/joshka/webfinger-rs/pull/161))
+- Use query parser in server extractors ([#160](https://github.com/joshka/webfinger-rs/pull/160))
+- Add WebFinger query parser ([#159](https://github.com/joshka/webfinger-rs/pull/159))
+
 ## [0.0.26](https://github.com/joshka/webfinger-rs/compare/webfinger-rs-v0.0.25...webfinger-rs-v0.0.26) - 2026-06-27
 
 ### Other

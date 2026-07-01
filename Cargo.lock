@@ -3060,7 +3060,7 @@ dependencies = [
 
 [[package]]
 name = "webfinger-cli"
-version = "0.0.26"
+version = "0.0.27"
 dependencies = [
  "clap",
  "clap-cargo",
@@ -3078,7 +3078,7 @@ dependencies = [
 
 [[package]]
 name = "webfinger-rs"
-version = "0.0.26"
+version = "0.0.27"
 dependencies = [
  "actix-tls",
  "actix-web",
