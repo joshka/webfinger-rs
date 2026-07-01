@@ -15,7 +15,6 @@ keywords = ["webfinger", "client", "library", "rust", "cli"]
 readme = "README.md"
 
 [workspace.dependencies]
-actix-tls = { version = "3.4", features = ["rustls-0_23"] }
 actix-web = { version = "4.6", default-features = false, features = ["rustls-0_23"] }
 async-convert = "1"
 axum = { version = "0.8", default-features = false }
@@ -25,22 +24,20 @@ clap-cargo = "0.18"
 clap-verbosity-flag = { version = "3.0.1", default-features = false }
 color-eyre = "0.6"
 colored_json = "5"
-http = "1.1"
+http = { version = "1.1", default-features = false, features = ["std"] }
 http-body-util = "0.1.2"
-nutype = { version = "0.7", features = ["serde"] }
-percent-encoding = "2.3"
+nutype = { version = "0.7", default-features = false, features = ["serde", "std"] }
+percent-encoding = { version = "2.3", default-features = false }
 rcgen = "0.14"
 reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"] }
 rustls = "0.23.27"
-serde = { version = "1.0.221", features = ["derive"] }
-serde_json = "1.0.45"
-serde_with = "3"
-thiserror = "2"
-time = ">=0.3.17, <0.3.52"
-tokio = "1.41"
+serde = { version = "1.0.220", default-features = false, features = ["derive", "std"] }
+serde_json = { version = "1.0.45", default-features = false, features = ["std"] }
+serde_with = { version = "3", default-features = false, features = ["macros", "std"] }
+thiserror = { version = "2", default-features = false, features = ["std"] }
+tokio = { version = "1.41", default-features = false }
 tower = "0.5.2"
 tower-http = { version = "0.7.0" }
-tracing = "0.1.37"
-tracing-error = "0.2"
-tracing-subscriber = "0.3"
+tracing = { version = "0.1.37", default-features = false, features = ["attributes", "std"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["ansi", "env-filter", "fmt"] }
 webfinger-rs = { path = "webfinger-rs", version = "0.0.27" }

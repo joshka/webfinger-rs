@@ -14,31 +14,27 @@ authors.workspace = true
 ## No features are enabled by default.
 default = []
 ## Provides integration with the Actix web framework.
-actix = ["dep:actix-web", "dep:time"]
+actix = ["dep:actix-web"]
 ## Provides integration with the Axum web framework.
 axum = ["dep:axum"]
 ## Provides integration with the Reqwest HTTP client.
 reqwest = ["dep:reqwest"]
 
 [dependencies]
-actix-web = { version = "4.6", optional = true }
-async-convert = "1"
-axum = { version = "0.8", optional = true, default-features = false, features = ["json"] }
-http = "1.1"
-nutype = { version = "0.7", features = ["serde"] }
-percent-encoding = "2.3"
-reqwest = { version = "0.13", optional = true, default-features = false, features = ["json", "rustls-no-provider"] }
-serde = { version = "1.0.221", features = ["derive"] }
-serde_json = "1.0.45"
-serde_with = "3"
-thiserror = "2"
-# Actix Web depends on cookie 0.16.x, which fails to compile with time 0.3.52's
-# parsing API. Keep the constraint feature-scoped so non-Actix users are unaffected.
-time = { workspace = true, optional = true }
-tracing = "0.1.37"
+actix-web = { version = "4.6", optional = true, default-features = false }
+async-convert.workspace = true
+axum = { workspace = true, optional = true, features = ["json"] }
+http.workspace = true
+nutype.workspace = true
+percent-encoding.workspace = true
+reqwest = { workspace = true, optional = true, features = ["json"] }
+serde.workspace = true
+serde_json.workspace = true
+serde_with.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
-actix-tls.workspace = true
 actix-web = { workspace = true, features = ["macros"] }
 axum = { workspace = true, default-features = true }
 axum-server = { workspace = true, features = ["tls-rustls"] }
