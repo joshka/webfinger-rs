@@ -259,6 +259,8 @@ pub mod actix;
 pub mod axum;
 mod error;
 mod http;
+#[cfg(test)]
+mod query;
 #[cfg(feature = "reqwest")]
 mod reqwest;
 mod types;
