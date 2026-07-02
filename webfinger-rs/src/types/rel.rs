@@ -6,6 +6,7 @@ use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::Error;
+use crate::types::jrd_uri::is_absolute_uri;
 
 /// Link relation type.
 ///
@@ -160,13 +161,6 @@ impl Visitor<'_> for RelVisitor {
     {
         Rel::try_new(value).map_err(E::custom)
     }
-}
-
-fn is_absolute_uri(value: &str) -> bool {
-    let Ok(uri) = value.parse::<http::Uri>() else {
-        return false;
-    };
-    uri.scheme().is_some()
 }
 
 fn is_registered_relation_type(value: &str) -> bool {
