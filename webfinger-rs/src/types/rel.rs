@@ -20,7 +20,8 @@ use crate::types::jrd_uri::is_absolute_uri;
 /// so deserialized and programmatically built links use the same representation.
 ///
 /// Registered relation type names use the `reg-rel-type` syntax from [RFC 5988 section 5.3].
-/// URI-valued relation types are validated as absolute URI strings.
+/// URI-valued relation types are validated as absolute URI strings under RFC 3986, including the
+/// [section 2.1] percent-encoding rule.
 ///
 /// See [RFC 7033 section 4.4.4.1].
 ///
@@ -48,6 +49,7 @@ use crate::types::jrd_uri::is_absolute_uri;
 ///
 /// [RFC 7033 section 4.4.4.1]: https://www.rfc-editor.org/rfc/rfc7033.html#section-4.4.4.1
 /// [RFC 5988 section 5.3]: https://www.rfc-editor.org/rfc/rfc5988.html#section-5.3
+/// [section 2.1]: https://www.rfc-editor.org/rfc/rfc3986.html#section-2.1
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Rel(String);
 
@@ -263,6 +265,13 @@ mod tests {
     #[test]
     fn rejects_relative_uri_relation_types() {
         let error = Rel::try_new("/rel/profile-page").expect_err("relative URI relation type");
+
+        assert!(error.to_string().contains("invalid relation type"));
+    }
+
+    #[test]
+    fn rejects_uri_relation_types_with_malformed_percent_escapes() {
+        let error = Rel::try_new("http://example.com/a%GG").expect_err("malformed percent escape");
 
         assert!(error.to_string().contains("invalid relation type"));
     }
