@@ -6,6 +6,10 @@ use crate::{WebFingerRequest, WebFingerResponse};
 
 struct EmptyBody;
 
+fn webfinger_reqwest_client() -> Result<reqwest::Client, reqwest::Error> {
+    reqwest::Client::builder().https_only(true).build()
+}
+
 impl From<EmptyBody> for reqwest::Body {
     fn from(_: EmptyBody) -> reqwest::Body {
         reqwest::Body::default()
@@ -41,21 +45,22 @@ impl WebFingerRequest {
     /// The method:
     ///
     /// 1. Converts the WebFinger query into a `GET` [`reqwest::Request`].
-    /// 1. Creates a new default [`reqwest::Client`].
+    /// 1. Creates a new [`reqwest::Client`] that only sends HTTPS requests, including redirects.
     /// 1. Sends the request with that client.
     /// 1. Rejects non-success HTTP statuses with [`reqwest::Response::error_for_status`].
     /// 1. Deserializes the response body as JSON into [`WebFingerResponse`].
     ///
-    /// Use this when the default Reqwest client configuration is sufficient. If you need shared
-    /// connection pooling, custom headers, middleware, proxies, timeouts, or TLS settings, prefer
-    /// [`Self::execute_reqwest_with_client`] instead.
+    /// Use this when the first-party WebFinger client configuration is sufficient. This path
+    /// follows RFC 7033's HTTPS-only transport requirements by rejecting redirects to non-HTTPS
+    /// targets. If you need shared connection pooling, custom headers, middleware, proxies,
+    /// timeouts, or TLS settings, prefer [`Self::execute_reqwest_with_client`] instead.
     ///
     /// Errors are returned as [`crate::Error`]:
     ///
     /// - Request-construction failures surface as [`crate::Error::Http`] or
     ///   [`crate::Error::InvalidUri`].
-    /// - Reqwest transport failures, non-success HTTP statuses, and JSON decoding failures surface
-    ///   as [`crate::Error::Reqwest`].
+    /// - Reqwest client-construction failures, transport failures, non-success HTTP statuses, and
+    ///   JSON decoding failures surface as [`crate::Error::Reqwest`].
     ///
     /// # Examples
     ///
@@ -75,7 +80,7 @@ impl WebFingerRequest {
     /// ```
     #[tracing::instrument]
     pub async fn execute_reqwest(&self) -> Result<WebFingerResponse, Error> {
-        let client = reqwest::Client::new();
+        let client = webfinger_reqwest_client()?;
         self.execute_reqwest_with_client(&client).await
     }
 
@@ -83,7 +88,11 @@ impl WebFingerRequest {
     ///
     /// This follows the same conversion, status handling, and JSON decoding path as
     /// [`Self::execute_reqwest`], but reuses the client you provide instead of constructing a new
-    /// default one for each call.
+    /// WebFinger-specific one for each call.
+    ///
+    /// RFC 7033 requires clients to query WebFinger resources using HTTPS only and allows redirects
+    /// only to HTTPS URIs. Caller-provided clients are used as-is, so configure them to reject
+    /// non-HTTPS requests and redirect targets when you need RFC-compliant WebFinger execution.
     ///
     /// Use this when your application already owns a configured client, for example to:
     ///
@@ -107,6 +116,7 @@ impl WebFingerRequest {
     /// let client = Client::builder()
     ///     .timeout(Duration::from_secs(10))
     ///     .user_agent("webfinger-rs docs example")
+    ///     .https_only(true)
     ///     .build()?;
     ///
     /// let request = WebFingerRequest::builder("acct:carol@example.com")?
@@ -208,5 +218,41 @@ impl async_convert::TryFrom<reqwest::Response> for WebFingerResponse {
         let response = response.error_for_status()?;
         let response = response.json().await?;
         Ok(response)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Once;
+
+    use reqwest::Method;
+
+    use super::*;
+
+    static RUSTLS_PROVIDER: Once = Once::new();
+
+    fn install_test_crypto_provider() {
+        RUSTLS_PROVIDER.call_once(|| {
+            let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        });
+    }
+
+    /// RFC 7033 sections 4.2 and 9.1 require WebFinger clients to use HTTPS-only transport. The
+    /// first-party client should reject an HTTP URL before attempting network I/O; the same Reqwest
+    /// setting also applies to redirect targets.
+    #[tokio::test]
+    async fn default_webfinger_client_rejects_non_https_requests() {
+        install_test_crypto_provider();
+
+        let client = webfinger_reqwest_client().unwrap();
+        let url = "http://127.0.0.1:9/.well-known/webfinger?resource=acct:carol@example.org"
+            .parse()
+            .unwrap();
+        let request = reqwest::Request::new(Method::GET, url);
+
+        let error = client.execute(request).await.unwrap_err();
+
+        assert!(error.is_builder());
+        assert_eq!(error.url().map(reqwest::Url::scheme), Some("http"));
     }
 }
