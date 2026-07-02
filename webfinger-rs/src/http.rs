@@ -52,7 +52,7 @@ impl TryFrom<&WebFingerRequest> for PathAndQuery {
         path.push_str("?resource=");
         path.push_str(&resource);
         for rel in &query.rels {
-            let rel = utf8_percent_encode(rel, &QUERY).to_string();
+            let rel = utf8_percent_encode(rel.as_ref(), &QUERY).to_string();
             path.push_str("&rel=");
             path.push_str(&rel);
         }
@@ -130,7 +130,7 @@ mod tests {
         let request = WebFingerRequest {
             resource: "acct:carol@example.org".parse().unwrap(),
             host: "example.org".to_string(),
-            rels: vec![Rel::from("https://example.org/rel/a%2Fb")],
+            rels: vec![Rel::new("https://example.org/rel/a%2Fb")],
         };
 
         let uri = Uri::try_from(&request).unwrap();

@@ -60,7 +60,7 @@ use tracing::trace;
 
 use crate::http::CORS_ALLOW_ORIGIN;
 use crate::query::{RequestParams, RequestParamsError};
-use crate::{Rel, ResourceError, WebFingerRequest, WebFingerResponse};
+use crate::{Error, Rel, ResourceError, WebFingerRequest, WebFingerResponse};
 
 const JRD_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/jrd+json");
 const CORS_ALLOW_ORIGIN_HEADER: HeaderValue = HeaderValue::from_static(CORS_ALLOW_ORIGIN);
@@ -135,7 +135,8 @@ impl IntoResponse for WebFingerResponse {
 ///   authority;
 /// - [`Rejection::InvalidQueryString`] when the query string is missing `resource`, contains more
 ///   than one `resource`, or contains malformed percent encoding;
-/// - [`Rejection::InvalidResource`] when the `resource` value is not an absolute URI.
+/// - [`Rejection::InvalidResource`] when the `resource` value is not an absolute URI; and
+/// - [`Rejection::InvalidRel`] when a `rel` value is not a URI or registered relation type.
 #[derive(Debug)]
 pub enum Rejection {
     /// The WebFinger query string is missing required data or is malformed.
@@ -143,6 +144,9 @@ pub enum Rejection {
 
     /// The `resource` query parameter is not an absolute URI.
     InvalidResource(ResourceError),
+
+    /// A `rel` query parameter is not a valid relation type.
+    InvalidRel(Error),
 
     /// The `Host` header is missing.
     MissingHost,
@@ -160,6 +164,7 @@ impl IntoResponse for Rejection {
             Rejection::MissingHost => "missing host".to_string(),
             Rejection::InvalidQueryString(error) => error,
             Rejection::InvalidResource(error) => format!("invalid resource: {error}"),
+            Rejection::InvalidRel(error) => error.to_string(),
         };
         (StatusCode::BAD_REQUEST, message).into_response()
     }
@@ -230,7 +235,12 @@ impl<S: Send + Sync> FromRequestParts<S> for WebFingerRequest {
             .ok_or(Rejection::MissingHost)?;
 
         let query: RequestParams = parts.uri.query().unwrap_or("").parse()?;
-        let rels = query.rel.into_iter().map(Rel::from).collect();
+        let rels = query
+            .rel
+            .into_iter()
+            .map(Rel::try_new)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Rejection::InvalidRel)?;
 
         Ok(WebFingerRequest {
             host,
@@ -553,6 +563,25 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK, "{response:?}");
         let body = response.into_text().await?;
         assert_eq!(body, r#"["http://webfinger.example/rel/profile-page"]"#);
+        Ok(())
+    }
+
+    /// Rejects relation values that are neither one registered relation type nor one URI.
+    ///
+    /// RFC 7033 section 4.4.4.1 allows one relation type per `rel` member. Multiple relation
+    /// filters should be encoded as repeated `rel` parameters, not as whitespace-separated values.
+    #[tokio::test]
+    async fn invalid_rel_is_bad_request() -> Result {
+        let resource = "acct%3Acarol%40example.org";
+        let uri =
+            format!("https://example.com{WELL_KNOWN_PATH}?resource={resource}&rel=author%20avatar");
+        let request = Request::builder().uri(uri).body(Body::empty())?;
+
+        let response = rels_app().oneshot(request).await?;
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{response:?}");
+        let body = response.into_text().await?;
+        assert_eq!(body, "invalid relation type: author avatar");
         Ok(())
     }
 

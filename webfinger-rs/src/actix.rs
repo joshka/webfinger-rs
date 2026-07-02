@@ -182,7 +182,12 @@ fn extract_request(req: &HttpRequest) -> Result<WebFingerRequest, ActixError> {
         .map(|h| h.to_string())
         .ok_or(ErrorBadRequest("missing host"))?;
     let query: RequestParams = req.query_string().parse()?;
-    let rels = query.rel.into_iter().map(Rel::from).collect();
+    let rels = query
+        .rel
+        .into_iter()
+        .map(Rel::try_new)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(ErrorBadRequest)?;
     Ok(WebFingerRequest {
         host,
         resource: query.resource,
@@ -449,6 +454,29 @@ mod tests {
             body.as_ref(),
             br#"["http://webfinger.example/rel/profile-page"]"#,
         );
+        Ok(())
+    }
+
+    /// Rejects relation values that are neither one registered relation type nor one URI.
+    ///
+    /// RFC 7033 section 4.4.4.1 allows one relation type per `rel` member. Multiple relation
+    /// filters should be encoded as repeated `rel` parameters, not as whitespace-separated values.
+    #[actix_web::test]
+    async fn invalid_rel_is_bad_request() -> Result {
+        let app = App::new().route(WELL_KNOWN_PATH, web::get().to(webfinger_rels));
+        let app = test::init_service(app).await;
+        let resource = "acct%3Acarol%40example.org";
+        let uri = format!("{WELL_KNOWN_PATH}?resource={resource}&rel=author%20avatar");
+        let request = test::TestRequest::get()
+            .uri(&uri)
+            .insert_header(("host", "example.org"))
+            .to_request();
+
+        let response = test::call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{response:?}");
+        let body = to_bytes(response.into_body()).await?;
+        assert_eq!(body.as_ref(), b"invalid relation type: author avatar");
         Ok(())
     }
 
