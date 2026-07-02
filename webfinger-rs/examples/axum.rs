@@ -11,9 +11,12 @@ use tracing::info;
 use tracing::level_filters::LevelFilter;
 use webfinger_rs::{Link, Rel, WELL_KNOWN_PATH, WebFingerRequest, WebFingerResponse};
 
+const AVATAR_HREF: &str = "https://localhost:3000/media/carol.png";
+const AVATAR_REL: &str = "http://webfinger.net/rel/avatar";
 const HOST: &str = "localhost:3000";
-const PROFILE_HREF: &str = "https://example.com/users/carol";
-const PROFILE_REL: &str = "http://webfinger.net/rel/profile-page";
+const PROFILE_HREF: &str = "https://localhost:3000/users/carol";
+const PROFILE_PAGE_REL: &str = "http://webfinger.net/rel/profile-page";
+const ROLE_PROPERTY: &str = "https://example.com/ns/account-role";
 const SUBJECT: &str = "acct:carol@localhost";
 
 #[tokio::main]
@@ -32,7 +35,11 @@ async fn main() -> Result<()> {
     let unfiltered_request = WebFingerRequest::builder(SUBJECT)?.host(HOST).build();
     let profile_request = WebFingerRequest::builder(SUBJECT)?
         .host(HOST)
-        .rel(PROFILE_REL)
+        .rel(PROFILE_PAGE_REL)
+        .build();
+    let avatar_request = WebFingerRequest::builder(SUBJECT)?
+        .host(HOST)
+        .rel(AVATAR_REL)
         .build();
 
     info!("Listening at https://{addr}{WELL_KNOWN_PATH}");
@@ -44,6 +51,7 @@ async fn main() -> Result<()> {
         "Profile-page query: {}",
         http::Uri::try_from(&profile_request)?
     );
+    info!("Avatar query: {}", http::Uri::try_from(&avatar_request)?);
     axum_server::bind_rustls(addr, config).serve(router).await?;
 
     Ok(())
@@ -67,12 +75,32 @@ async fn webfinger(request: WebFingerRequest) -> axum::response::Result<WebFinge
         let message = format!("{subject} does not exist");
         return Err((StatusCode::NOT_FOUND, message).into());
     }
-    let rel = Rel::new(PROFILE_REL);
-    let response = if request.rels.is_empty() || request.rels.contains(&rel) {
-        let link = Link::builder(rel).href(PROFILE_HREF);
-        WebFingerResponse::builder(subject).link(link).build()
-    } else {
-        WebFingerResponse::builder(subject).build()
-    };
+    let mut links = Vec::new();
+
+    let profile_rel = Rel::new(PROFILE_PAGE_REL);
+    if request.rels.is_empty() || request.rels.contains(&profile_rel) {
+        links.push(
+            Link::builder(profile_rel)
+                .href(PROFILE_HREF)
+                .title("en", "Carol's profile")
+                .build(),
+        );
+    }
+
+    let avatar_rel = Rel::new(AVATAR_REL);
+    if request.rels.is_empty() || request.rels.contains(&avatar_rel) {
+        links.push(
+            Link::builder(avatar_rel)
+                .href(AVATAR_HREF)
+                .r#type("image/png")
+                .build(),
+        );
+    }
+
+    let response = WebFingerResponse::builder(subject)
+        .alias(PROFILE_HREF)
+        .property(ROLE_PROPERTY, "maintainer")
+        .links(links)
+        .build();
     Ok(response)
 }

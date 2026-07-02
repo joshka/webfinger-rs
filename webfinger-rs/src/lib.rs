@@ -121,14 +121,29 @@
 //! # #[cfg(feature = "reqwest")] {
 //! use webfinger_rs::WebFingerRequest;
 //!
+//! const PROFILE_PAGE_REL: &str = "http://webfinger.net/rel/profile-page";
+//! const AVATAR_REL: &str = "http://webfinger.net/rel/avatar";
+//!
 //! async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //!     let request = WebFingerRequest::builder("acct:carol@example.com")?
 //!         .host("example.com")
-//!         .rel("http://webfinger.net/rel/profile-page")
+//!         .rel(PROFILE_PAGE_REL)
+//!         .rel(AVATAR_REL)
 //!         .build();
 //!
 //!     let response = request.execute_reqwest().await?;
-//!     println!("{response:#?}");
+//!     println!("Subject: {}", response.subject);
+//!     for rel in [PROFILE_PAGE_REL, AVATAR_REL] {
+//!         if let Some(href) = response
+//!             .links
+//!             .iter()
+//!             .find(|link| link.rel.as_ref() == rel)
+//!             .and_then(|link| link.href.as_ref().map(|href| href.as_ref()))
+//!         {
+//!             println!("{rel}: {href}");
+//!         }
+//!     }
+//!     println!("{response}");
 //!     Ok(())
 //! }
 //! # }
@@ -146,19 +161,46 @@
 //! use axum::{http::StatusCode, routing::get, Router};
 //! use webfinger_rs::{Link, Rel, WELL_KNOWN_PATH, WebFingerRequest, WebFingerResponse};
 //!
+//! const SUBJECT: &str = "acct:carol@example.com";
+//! const PROFILE_PAGE_REL: &str = "http://webfinger.net/rel/profile-page";
+//! const AVATAR_REL: &str = "http://webfinger.net/rel/avatar";
+//! const PROFILE_URL: &str = "https://example.com/users/carol";
+//! const AVATAR_URL: &str = "https://example.com/media/carol.png";
+//! const ROLE_PROPERTY: &str = "https://example.com/ns/account-role";
+//!
 //! async fn webfinger(request: WebFingerRequest) -> axum::response::Result<WebFingerResponse> {
 //!     let subject = request.resource.to_string();
-//!     if subject != "acct:carol@example.com" {
+//!     if subject != SUBJECT {
 //!         return Err((StatusCode::NOT_FOUND, "not found").into());
 //!     }
 //!
-//!     let rel = Rel::new("http://webfinger.net/rel/profile-page");
-//!     let response = if request.rels.is_empty() || request.rels.contains(&rel) {
-//!         let link = Link::builder(rel).href("https://example.com/users/carol");
-//!         WebFingerResponse::builder(subject).link(link).build()
-//!     } else {
-//!         WebFingerResponse::builder(subject).build()
-//!     };
+//!     let mut links = Vec::new();
+//!
+//!     let profile_rel = Rel::new(PROFILE_PAGE_REL);
+//!     if request.rels.is_empty() || request.rels.contains(&profile_rel) {
+//!         links.push(
+//!             Link::builder(profile_rel)
+//!                 .href(PROFILE_URL)
+//!                 .title("en", "Carol's profile")
+//!                 .build(),
+//!         );
+//!     }
+//!
+//!     let avatar_rel = Rel::new(AVATAR_REL);
+//!     if request.rels.is_empty() || request.rels.contains(&avatar_rel) {
+//!         links.push(
+//!             Link::builder(avatar_rel)
+//!                 .href(AVATAR_URL)
+//!                 .r#type("image/png")
+//!                 .build(),
+//!         );
+//!     }
+//!
+//!     let response = WebFingerResponse::builder(subject)
+//!         .alias(PROFILE_URL)
+//!         .property(ROLE_PROPERTY, "maintainer")
+//!         .links(links)
+//!         .build();
 //!     Ok(response)
 //! }
 //!
@@ -186,27 +228,53 @@
 //! #         InitError = (),
 //! #     >,
 //! # > {
-//! use actix_web::{get, App};
-//! use webfinger_rs::{Link, Rel, WebFingerRequest, WebFingerResponse};
+//! use actix_web::{App, web};
+//! use webfinger_rs::{Link, Rel, WELL_KNOWN_PATH, WebFingerRequest, WebFingerResponse};
 //!
-//! #[get("/.well-known/webfinger")]
+//! const SUBJECT: &str = "acct:carol@example.com";
+//! const PROFILE_PAGE_REL: &str = "http://webfinger.net/rel/profile-page";
+//! const AVATAR_REL: &str = "http://webfinger.net/rel/avatar";
+//! const PROFILE_URL: &str = "https://example.com/users/carol";
+//! const AVATAR_URL: &str = "https://example.com/media/carol.png";
+//! const ROLE_PROPERTY: &str = "https://example.com/ns/account-role";
+//!
 //! async fn webfinger(request: WebFingerRequest) -> actix_web::Result<WebFingerResponse> {
 //!     let subject = request.resource.to_string();
-//!     if subject != "acct:carol@example.com" {
+//!     if subject != SUBJECT {
 //!         return Err(actix_web::error::ErrorNotFound("not found"));
 //!     }
 //!
-//!     let rel = Rel::new("http://webfinger.net/rel/profile-page");
-//!     let response = if request.rels.is_empty() || request.rels.contains(&rel) {
-//!         let link = Link::builder(rel).href("https://example.com/users/carol");
-//!         WebFingerResponse::builder(subject).link(link).build()
-//!     } else {
-//!         WebFingerResponse::builder(subject).build()
-//!     };
+//!     let mut links = Vec::new();
+//!
+//!     let profile_rel = Rel::new(PROFILE_PAGE_REL);
+//!     if request.rels.is_empty() || request.rels.contains(&profile_rel) {
+//!         links.push(
+//!             Link::builder(profile_rel)
+//!                 .href(PROFILE_URL)
+//!                 .title("en", "Carol's profile")
+//!                 .build(),
+//!         );
+//!     }
+//!
+//!     let avatar_rel = Rel::new(AVATAR_REL);
+//!     if request.rels.is_empty() || request.rels.contains(&avatar_rel) {
+//!         links.push(
+//!             Link::builder(avatar_rel)
+//!                 .href(AVATAR_URL)
+//!                 .r#type("image/png")
+//!                 .build(),
+//!         );
+//!     }
+//!
+//!     let response = WebFingerResponse::builder(subject)
+//!         .alias(PROFILE_URL)
+//!         .property(ROLE_PROPERTY, "maintainer")
+//!         .links(links)
+//!         .build();
 //!     Ok(response)
 //! }
 //!
-//! App::new().service(webfinger)
+//! App::new().route(WELL_KNOWN_PATH, web::get().to(webfinger))
 //! # }
 //! ```
 //!
@@ -246,12 +314,14 @@
 //!
 //! Run one server example first, then run the client example in another shell. The client example
 //! queries `https://localhost:3000`, accepts the self-signed certificate generated by either server
-//! example, and prints the profile-page link returned by the shared [`WebFingerResponse`] type.
+//! example, and prints the profile-page and avatar links returned by the shared
+//! [`WebFingerResponse`] type.
 //!
-//! The server examples also work with the CLI. A profile-page relation returns one link, while an
-//! unmatched relation returns the same subject with an empty `links` array:
+//! The server examples also work with the CLI. Query without `--rel` to get both links, or pass a
+//! relation filter to narrow the returned `links` array:
 //!
 //! ```shell
+//! webfinger acct:carol@localhost localhost:3000 --insecure
 //! webfinger acct:carol@localhost localhost:3000 --insecure --rel http://webfinger.net/rel/profile-page
 //! webfinger acct:carol@localhost localhost:3000 --insecure --rel http://webfinger.net/rel/avatar
 //! ```
