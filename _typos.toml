@@ -1,0 +1,2 @@
+[files]
+extend-exclude = ["webfinger-viewer-worker/assets/vendor/htmx.min.js"]

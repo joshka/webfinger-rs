@@ -1,0 +1,16 @@
+{
+  "name": "webfinger-viewer-worker",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "deploy:dry-run": "wrangler deploy --dry-run",
+    "dev": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^4.107.0"
+  },
+  "dependencies": {
+    "htmx.org": "2.0.10"
+  }
+}

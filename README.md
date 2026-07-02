@@ -35,6 +35,21 @@ Current integration targets:
 - Axum `0.8`
 - Actix Web `4`
 
+## Repository tools
+
+This repository also contains `webfinger-viewer-worker`, a separate Rust Cloudflare Worker that
+serves a browser UI for inspecting WebFinger discovery behavior. It is a debugging tool, not the
+server-side WebFinger responder: the page accepts an `acct:` resource or full WebFinger URL, asks
+the Worker to fetch the target `/.well-known/webfinger` endpoint server-side, and renders the
+target HTTP status, content type, redirect `Location`, parsed JRD fields, raw JSON, and a copyable
+`curl` command.
+
+The viewer is same-origin by default for public deployments, so a page mounted at
+`https://example.com/webfinger` inspects `https://example.com/.well-known/webfinger`. Local
+Wrangler sessions can use full loopback WebFinger URLs to inspect another local server. See
+[`webfinger-viewer-worker/README.md`](webfinger-viewer-worker/README.md) for local development,
+validation, and deployment notes.
+
 ## Primary types
 
 - `WebFingerRequest` models the WebFinger query target, host, and optional relation filters. Build
