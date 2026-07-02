@@ -1,10 +1,17 @@
-name = "webfinger-viewer-worker"
-main = "webfinger-viewer-worker/build/worker/shim.mjs"
+name = "webfinger-service-worker"
+main = "webfinger-service-worker/build/worker/shim.mjs"
 compatibility_date = "2026-07-02"
-compatibility_flags = ["global_fetch_strictly_public"]
+
+# Replace this with your zone before deploying, or manage routes in the Cloudflare dashboard.
+# routes = [
+#   { pattern = "example.com/.well-known/webfinger*", zone_name = "example.com" },
+# ]
+
+[[kv_namespaces]]
+binding = "WEBFINGER_CONFIG"
 
 [build]
-command = "scripts/build-webfinger-viewer-worker.sh"
+command = "scripts/build-webfinger-service-worker.sh"
 
 [observability]
 enabled = true

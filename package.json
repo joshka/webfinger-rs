@@ -1,11 +1,17 @@
 {
-  "name": "webfinger-viewer-worker",
+  "name": "webfinger-service-worker",
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "deploy": "wrangler deploy",
-    "deploy:dry-run": "wrangler deploy --dry-run",
-    "dev": "wrangler dev"
+    "deploy": "npm run deploy:service",
+    "deploy:dry-run": "npm run deploy:service:dry-run",
+    "dev": "npm run dev:service",
+    "deploy:service": "wrangler deploy",
+    "deploy:service:dry-run": "wrangler deploy --dry-run",
+    "dev:service": "wrangler dev",
+    "deploy:viewer": "wrangler deploy --config wrangler.viewer.toml",
+    "deploy:viewer:dry-run": "wrangler deploy --config wrangler.viewer.toml --dry-run",
+    "dev:viewer": "wrangler dev --config wrangler.viewer.toml"
   },
   "devDependencies": {
     "wrangler": "^4.107.0"

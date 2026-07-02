@@ -1,0 +1,17 @@
+[package]
+name = "webfinger-service"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Runtime-neutral WebFinger service configuration and provider types."
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+readme = "README.md"
+keywords = ["webfinger", "service", "config", "rust"]
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+webfinger-rs.workspace = true
