@@ -75,7 +75,7 @@
 //! relation looks like this:
 //!
 //! ```text
-//! GET https://example.com/.well-known/webfinger?resource=acct:carol@example.com&rel=http://webfinger.net/rel/profile-page
+//! GET https://example.com/.well-known/webfinger?resource=acct%3Acarol%40example.com&rel=http%3A%2F%2Fwebfinger.net%2Frel%2Fprofile-page
 //! ```
 //!
 //! See: [RFC 7033 section 4.1] for the query-construction rules and percent-encoding details.

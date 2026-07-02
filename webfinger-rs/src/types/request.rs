@@ -31,7 +31,7 @@ use crate::{Error, Rel, Resource};
 /// maps to this URL shape:
 ///
 /// ```text
-/// https://example.com/.well-known/webfinger?resource=acct:carol@example.com&rel=http://webfinger.net/rel/profile-page&rel=http://webfinger.net/rel/avatar
+/// https://example.com/.well-known/webfinger?resource=acct%3Acarol%40example.com&rel=http%3A%2F%2Fwebfinger.net%2Frel%2Fprofile-page&rel=http%3A%2F%2Fwebfinger.net%2Frel%2Favatar
 /// ```
 ///
 /// `host` is required when you want to turn the request into an outgoing HTTP request, because the
@@ -249,7 +249,7 @@ impl Builder {
     ///
     /// assert_eq!(
     ///     uri.to_string(),
-    ///     "https://example.com/.well-known/webfinger?resource=acct:carol@example.com&rel=http://webfinger.net/rel/profile-page",
+    ///     "https://example.com/.well-known/webfinger?resource=acct%3Acarol%40example.com&rel=http%3A%2F%2Fwebfinger.net%2Frel%2Fprofile-page",
     /// );
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
@@ -270,7 +270,7 @@ impl Builder {
     ///
     /// assert_eq!(
     ///     uri.to_string(),
-    ///     "https://example.com/.well-known/webfinger?resource=acct:carol@example.com&rel=http://webfinger.net/rel/profile-page&rel=http://webfinger.net/rel/avatar",
+    ///     "https://example.com/.well-known/webfinger?resource=acct%3Acarol%40example.com&rel=http%3A%2F%2Fwebfinger.net%2Frel%2Fprofile-page&rel=http%3A%2F%2Fwebfinger.net%2Frel%2Favatar",
     /// );
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
@@ -298,12 +298,9 @@ mod tests {
         };
         let uri = Uri::try_from(&query).unwrap();
 
-        // The RFC unnecessarily percent-encodes this to:
-        // `"/.well-known/webfinger?resource=acct%3Acarol%40example.com&rel=http%3A%2F%2Fopenid.net%
-        // 2Fspecs%2Fconnect%2F1.0%2Fissuer"`
         assert_eq!(
             uri.to_string(),
-            "https://example.com/.well-known/webfinger?resource=acct:carol@example.com&rel=http://openid.net/specs/connect/1.0/issuer",
+            "https://example.com/.well-known/webfinger?resource=acct%3Acarol%40example.com&rel=http%3A%2F%2Fopenid.net%2Fspecs%2Fconnect%2F1.0%2Fissuer",
         );
     }
 
@@ -318,11 +315,9 @@ mod tests {
         };
         let uri = Uri::try_from(&query).unwrap();
 
-        // The RFC unnecessarily percent-encodes this to:
-        // /.well-known/webfinger?resource=http%3A%2F%2Fblog.example.com%2Farticle%2Fid%2F314
         assert_eq!(
             uri.to_string(),
-            "https://blog.example.com/.well-known/webfinger?resource=http://blog.example.com/article/id/314",
+            "https://blog.example.com/.well-known/webfinger?resource=http%3A%2F%2Fblog.example.com%2Farticle%2Fid%2F314",
         );
     }
 }

@@ -46,7 +46,7 @@ A request built by this crate today for `acct:carol@example.com` filtered to the
 relation looks like this:
 
 ```text
-GET https://example.com/.well-known/webfinger?resource=acct:carol@example.com&rel=http://webfinger.net/rel/profile-page
+GET https://example.com/.well-known/webfinger?resource=acct%3Acarol%40example.com&rel=http%3A%2F%2Fwebfinger.net%2Frel%2Fprofile-page
 ```
 
 Server integrations split that contract across the normal web-framework boundary:
