@@ -2725,7 +2725,7 @@ dependencies = [
 
 [[package]]
 name = "webfinger-cli"
-version = "0.0.29"
+version = "0.0.30"
 dependencies = [
  "clap",
  "clap-cargo",
@@ -2743,7 +2743,7 @@ dependencies = [
 
 [[package]]
 name = "webfinger-rs"
-version = "0.0.29"
+version = "0.0.30"
 dependencies = [
  "actix-web",
  "async-convert",
