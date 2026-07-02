@@ -8,11 +8,13 @@ use crate::{WELL_KNOWN_PATH, WebFingerRequest, WebFingerResponse};
 
 pub(crate) const CORS_ALLOW_ORIGIN: &str = "*";
 
-/// The set of values to percent encode
+/// The set of bytes to percent-encode in WebFinger query parameter values.
 ///
-/// Notably, this set does not include the `@`, `:`, `?`, and `/` characters which are allowed by
-/// RFC 3986 in the query component. It does include `%` so already-percent-encoded resource or
-/// relation URIs survive WebFinger query parsing as literal percent escapes in the target value.
+/// RFC 7033 section 4.1 percent-encodes the `resource` and `rel` parameter values before placing
+/// them in the query component. Only RFC 3986 unreserved characters are left literal here, which
+/// matches the RFC examples and keeps URI delimiters inside parameter values unambiguous. The set
+/// includes `%` so already-percent-encoded resource or relation URIs survive WebFinger query
+/// parsing as literal percent escapes in the target value.
 ///
 /// See the following RFCs for more information:
 /// - <https://www.rfc-editor.org/rfc/rfc7033#section-4.1>
@@ -23,13 +25,27 @@ pub(crate) const CORS_ALLOW_ORIGIN: &str = "*";
 /// Note: this may be implemented in the `percent-encoding` crate soon in
 /// <https://github.com/servo/rust-url/pull/971>
 const QUERY: AsciiSet = percent_encoding::CONTROLS
-    // RFC 3986
     .add(b' ')
+    .add(b'!')
     .add(b'"')
     .add(b'#')
+    .add(b'$')
     .add(b'%')
+    .add(b'&')
+    .add(b'\'')
+    .add(b'(')
+    .add(b')')
+    .add(b'*')
+    .add(b'+')
+    .add(b',')
+    .add(b'/')
+    .add(b':')
+    .add(b';')
     .add(b'<')
+    .add(b'=')
     .add(b'>')
+    .add(b'?')
+    .add(b'@')
     .add(b'[')
     .add(b'\\')
     .add(b']')
@@ -37,10 +53,7 @@ const QUERY: AsciiSet = percent_encoding::CONTROLS
     .add(b'`')
     .add(b'{')
     .add(b'|')
-    .add(b'}')
-    // RFC 7033
-    .add(b'=')
-    .add(b'&');
+    .add(b'}');
 
 impl TryFrom<&WebFingerRequest> for PathAndQuery {
     type Error = InvalidUri;
@@ -114,7 +127,7 @@ mod tests {
 
         assert_eq!(
             uri.to_string(),
-            "https://example.org/.well-known/webfinger?resource=https://example.org/profile/a%2520b",
+            "https://example.org/.well-known/webfinger?resource=https%3A%2F%2Fexample.org%2Fprofile%2Fa%2520b",
         );
     }
 
@@ -137,7 +150,7 @@ mod tests {
 
         assert_eq!(
             uri.to_string(),
-            "https://example.org/.well-known/webfinger?resource=acct:carol@example.org&rel=https://example.org/rel/a%252Fb",
+            "https://example.org/.well-known/webfinger?resource=acct%3Acarol%40example.org&rel=https%3A%2F%2Fexample.org%2Frel%2Fa%252Fb",
         );
     }
 }
