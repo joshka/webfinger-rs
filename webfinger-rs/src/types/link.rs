@@ -10,13 +10,15 @@ use crate::{JrdUri, Rel};
 ///
 /// Link objects describe related resources for the JRD subject. RFC 7033 gives each link a
 /// required [`rel`](Self::rel) member and optional `type`, `href`, `titles`, and `properties`
-/// members.
+/// members. Some WebFinger profiles also use the JRD `template` member from RFC 6415 link
+/// templates.
 ///
 /// The Rust fields mirror the JRD JSON shape:
 ///
 /// - [`rel`](Self::rel) is a [`Rel`] so the required relation string is validated as one relation
 ///   type.
 /// - [`href`](Self::href) is a [`JrdUri`] because RFC 7033 defines it as a URI string.
+/// - [`template`](Self::template) is a URI template string.
 /// - [`titles`](Self::titles) is a language-keyed object, matching the RFC JSON form.
 /// - [`properties`](Self::properties) uses [`JrdUri`] keys and `Option<String>` values so JSON
 ///   `null` is representable.
@@ -76,6 +78,17 @@ pub struct Link {
     /// [RFC 7033 section 4.4.4.3]: https://www.rfc-editor.org/rfc/rfc7033.html#section-4.4.4.3
     pub href: Option<JrdUri>,
 
+    /// A URI template for the link.
+    ///
+    /// RFC 6415 defines `template` as an optional JRD link member for link templates. The crate
+    /// stores it as a string because WebFinger servers do not need to parse or expand the template
+    /// expression before serializing it.
+    ///
+    /// See [RFC 6415 appendix A].
+    ///
+    /// [RFC 6415 appendix A]: https://www.rfc-editor.org/rfc/rfc6415.html#appendix-A
+    pub template: Option<String>,
+
     /// The titles of the link.
     ///
     /// RFC 7033 models titles as a JSON object whose keys are language tags and whose values are
@@ -116,6 +129,7 @@ impl Link {
             rel,
             r#type: None,
             href: None,
+            template: None,
             titles: None,
             properties: None,
         }
@@ -189,6 +203,16 @@ impl LinkBuilder {
     /// [RFC 7033 section 4.4.4.3]: https://www.rfc-editor.org/rfc/rfc7033.html#section-4.4.4.3
     pub fn href<S: AsRef<str>>(mut self, href: S) -> Self {
         self.link.href = Some(JrdUri::new(href));
+        self
+    }
+
+    /// Sets a URI template for the link.
+    ///
+    /// This writes the optional JRD `template` member from [RFC 6415 appendix A].
+    ///
+    /// [RFC 6415 appendix A]: https://www.rfc-editor.org/rfc/rfc6415.html#appendix-A
+    pub fn template<S: Into<String>>(mut self, template: S) -> Self {
+        self.link.template = Some(template.into());
         self
     }
 
@@ -302,6 +326,9 @@ impl Debug for Link {
         }
         if let Some(href) = &self.href {
             debug = debug.field("href", &href);
+        }
+        if let Some(template) = &self.template {
+            debug = debug.field("template", &template);
         }
         if let Some(titles) = &self.titles {
             debug = debug.field("titles", &titles);
@@ -418,6 +445,43 @@ mod tests {
                     "en-us": "Carol's Profile"
                 }
             })
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn builder_serializes_template() -> Result {
+        let link = Link::builder("http://ostatus.org/schema/1.0/subscribe")
+            .template("https://example.com/authorize_interaction?uri={uri}")
+            .build();
+
+        let json = serde_json::to_value(link)?;
+
+        assert_eq!(
+            json,
+            json!({
+                "rel": "http://ostatus.org/schema/1.0/subscribe",
+                "template": "https://example.com/authorize_interaction?uri={uri}",
+            })
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn deserializes_template() -> Result {
+        let json = r#"
+        {
+          "rel": "copyright",
+          "template": "http://example.com/copyright?id={uri}"
+        }
+        "#;
+
+        let link: Link = serde_json::from_str(json)?;
+
+        assert_eq!(link.rel.as_ref(), "copyright");
+        assert_eq!(
+            link.template.as_deref(),
+            Some("http://example.com/copyright?id={uri}")
         );
         Ok(())
     }
