@@ -19,7 +19,8 @@ use crate::Error;
 ///
 /// See [RFC 7033 section 4.4.1] for `subject`, [section 4.4.2] for `aliases`,
 /// [section 4.4.3] for response properties, [section 4.4.4.3] for link `href`, and
-/// [section 4.4.4.5] for link properties.
+/// [section 4.4.4.5] for link properties. Those sections rely on URI syntax from RFC 3986,
+/// including [section 2.1] percent escapes and [section 4.3] absolute URIs.
 ///
 /// # Examples
 ///
@@ -47,6 +48,8 @@ use crate::Error;
 /// [section 4.4.3]: https://www.rfc-editor.org/rfc/rfc7033.html#section-4.4.3
 /// [section 4.4.4.3]: https://www.rfc-editor.org/rfc/rfc7033.html#section-4.4.4.3
 /// [section 4.4.4.5]: https://www.rfc-editor.org/rfc/rfc7033.html#section-4.4.4.5
+/// [section 2.1]: https://www.rfc-editor.org/rfc/rfc3986.html#section-2.1
+/// [section 4.3]: https://www.rfc-editor.org/rfc/rfc3986.html#section-4.3
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct JrdUri(String);
 
@@ -169,11 +172,60 @@ impl Visitor<'_> for JrdUriVisitor {
     }
 }
 
+/// Returns whether `value` is an absolute URI string under the crate's JRD URI policy.
+///
+/// RFC 7033's JRD members call these values URI strings, not arbitrary text. This helper enforces
+/// the pieces the crate relies on before storing a [`JrdUri`] or accepting a URI-valued [`Rel`]:
+/// a valid RFC 3986 scheme, syntactically valid percent escapes, and successful parsing by
+/// [`http::Uri`]. The explicit percent-escape check is necessary because `http::Uri` accepts
+/// malformed escapes such as `%GG`, while RFC 3986 section 2.1 constrains percent encoding to `%`
+/// followed by two hexadecimal digits.
+///
+/// [`Rel`]: crate::Rel
+///
+/// See [RFC 3986 section 2.1] for percent encoding, [section 3.1] for scheme syntax, and
+/// [section 4.3] for absolute URI syntax.
+///
+/// [RFC 3986 section 2.1]: https://www.rfc-editor.org/rfc/rfc3986.html#section-2.1
+/// [section 3.1]: https://www.rfc-editor.org/rfc/rfc3986.html#section-3.1
+/// [section 4.3]: https://www.rfc-editor.org/rfc/rfc3986.html#section-4.3
 pub(crate) fn is_absolute_uri(value: &str) -> bool {
     let Some((scheme, _rest)) = value.split_once(':') else {
         return false;
     };
-    is_uri_scheme(scheme) && value.parse::<http::Uri>().is_ok()
+    let has_scheme = is_uri_scheme(scheme);
+    let has_valid_percent_encoding = has_valid_percent_escapes(value);
+    let parses_as_uri = value.parse::<http::Uri>().is_ok();
+
+    has_scheme && has_valid_percent_encoding && parses_as_uri
+}
+
+/// Returns whether every `%` starts a complete RFC 3986 percent escape.
+///
+/// RFC 3986 section 2.1 defines `pct-encoded` as `%` followed by exactly two hexadecimal digits.
+/// Some URI parsers preserve malformed escapes as ordinary path text, so URI-valued WebFinger
+/// fields need this check before accepting user or JSON input as validated URI text.
+///
+/// See [RFC 3986 section 2.1].
+///
+/// [RFC 3986 section 2.1]: https://www.rfc-editor.org/rfc/rfc3986.html#section-2.1
+fn has_valid_percent_escapes(value: &str) -> bool {
+    let mut bytes = value.as_bytes().iter();
+    while let Some(byte) = bytes.next() {
+        if *byte != b'%' {
+            continue;
+        }
+        let Some(high) = bytes.next() else {
+            return false;
+        };
+        let Some(low) = bytes.next() else {
+            return false;
+        };
+        if !high.is_ascii_hexdigit() || !low.is_ascii_hexdigit() {
+            return false;
+        }
+    }
+    true
 }
 
 fn is_uri_scheme(scheme: &str) -> bool {
@@ -264,6 +316,18 @@ mod tests {
         let error = JrdUri::try_new("carol@example.com").expect_err("non-URI string");
 
         assert!(error.to_string().contains("invalid JRD URI"));
+    }
+
+    #[test]
+    fn rejects_malformed_percent_escapes() {
+        for uri in ["https://example.org/a%GG", "acct:carol%GG@example.com"] {
+            let error = JrdUri::try_new(uri).expect_err("malformed percent escape");
+
+            assert!(
+                error.to_string().contains("invalid JRD URI"),
+                "expected invalid JRD URI error for {uri:?}, got {error:?}",
+            );
+        }
     }
 
     #[test]

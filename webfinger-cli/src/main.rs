@@ -153,4 +153,16 @@ mod tests {
 
         assert_eq!(host, "example.org");
     }
+
+    /// Rejects non-hierarchical HTTP resource text before host inference.
+    #[test]
+    fn resource_rejects_http_uri_without_authority() {
+        let command = command("http:foo");
+
+        let error = command
+            .resource()
+            .expect_err("HTTP resource without authority");
+
+        assert!(error.to_string().contains("invalid resource"));
+    }
 }

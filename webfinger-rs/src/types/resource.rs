@@ -22,6 +22,10 @@ pub enum ResourceError {
     /// The resource is an invalid HTTP or HTTPS URI.
     #[error(transparent)]
     InvalidHttpUri(#[from] http::uri::InvalidUri),
+
+    /// The resource is an HTTP or HTTPS URI without an authority.
+    #[error("HTTP and HTTPS resources must include an authority")]
+    MissingHttpAuthority,
 }
 
 /// A WebFinger resource URI.
@@ -29,10 +33,19 @@ pub enum ResourceError {
 /// RFC 7033 uses the `resource` query parameter for the query target, which is a URI rather than a
 /// relative reference. `Resource` stores that URI text after checking that it has an RFC 3986
 /// scheme and contains only ASCII URI text. Hierarchical `http` and `https` resources are also
-/// parsed with [`http::Uri`] so malformed authorities are rejected.
+/// required to use the `//authority` form from RFC 3986 section 3.2 before their host is exposed
+/// through [`Resource::host`].
 ///
 /// Common valid resources include `acct:carol@example.com` and
 /// `https://example.org/users/carol`.
+///
+/// See [RFC 7033 section 4.1] for the `resource` parameter, [RFC 3986 section 2.1] for percent
+/// encoding, [RFC 3986 section 3.1] for URI schemes, and [RFC 3986 section 3.2] for authority.
+///
+/// [RFC 7033 section 4.1]: https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1
+/// [RFC 3986 section 2.1]: https://www.rfc-editor.org/rfc/rfc3986.html#section-2.1
+/// [RFC 3986 section 3.1]: https://www.rfc-editor.org/rfc/rfc3986.html#section-3.1
+/// [RFC 3986 section 3.2]: https://www.rfc-editor.org/rfc/rfc3986.html#section-3.2
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Resource {
     text: String,
@@ -119,8 +132,17 @@ fn validate_resource(resource: &str) -> Result<Option<String>, ResourceError> {
     }
     validate_percent_escapes(resource)?;
     if scheme.eq_ignore_ascii_case("http") || scheme.eq_ignore_ascii_case("https") {
+        // WebFinger only needs host inference for hierarchical HTTP(S) resources. RFC 3986
+        // section 3.2 attaches an authority to URIs that begin their hier-part with `//`; opaque
+        // forms like `http:foo` must not produce a synthetic host.
+        if !resource[scheme.len()..].starts_with("://") {
+            return Err(ResourceError::MissingHttpAuthority);
+        }
         let uri = Uri::try_from(resource).map_err(ResourceError::InvalidHttpUri)?;
-        return Ok(uri.host().map(str::to_string));
+        let Some(host) = uri.host() else {
+            return Err(ResourceError::MissingHttpAuthority);
+        };
+        return Ok(Some(host.to_string()));
     }
     Ok(None)
 }
@@ -237,6 +259,19 @@ mod tests {
             matches!(error, ResourceError::InvalidPercentEncoding),
             "expected invalid-percent-encoding error, got {error:?}",
         );
+    }
+
+    /// Rejects HTTP and HTTPS resources that omit the required authority.
+    #[test]
+    fn rejects_http_resources_without_authority() {
+        for resource in ["http:foo", "https:foo", "http:/example.org/path"] {
+            let error = resource.parse::<Resource>().unwrap_err();
+
+            assert!(
+                matches!(error, ResourceError::MissingHttpAuthority),
+                "expected missing-authority error for {resource:?}, got {error:?}",
+            );
+        }
     }
 
     /// Validates HTTP and HTTPS resource authorities regardless of scheme case.
