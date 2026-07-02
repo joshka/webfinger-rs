@@ -11,6 +11,9 @@ use tracing::info;
 use tracing::level_filters::LevelFilter;
 use webfinger_rs::{Link, Rel, WELL_KNOWN_PATH, WebFingerRequest, WebFingerResponse};
 
+const HOST: &str = "localhost:3000";
+const PROFILE_HREF: &str = "https://example.com/users/carol";
+const PROFILE_REL: &str = "http://webfinger.net/rel/profile-page";
 const SUBJECT: &str = "acct:carol@localhost";
 
 #[tokio::main]
@@ -26,8 +29,21 @@ async fn main() -> Result<()> {
         .route_layer(TraceLayer::new_for_http())
         .into_make_service();
     let config = tls_config().await?;
+    let unfiltered_request = WebFingerRequest::builder(SUBJECT)?.host(HOST).build();
+    let profile_request = WebFingerRequest::builder(SUBJECT)?
+        .host(HOST)
+        .rel(PROFILE_REL)
+        .build();
 
-    info!("Listening at https://{addr:?}{WELL_KNOWN_PATH}?resource={SUBJECT}");
+    info!("Listening at https://{addr}{WELL_KNOWN_PATH}");
+    info!(
+        "Unfiltered query: {}",
+        http::Uri::try_from(&unfiltered_request)?
+    );
+    info!(
+        "Profile-page query: {}",
+        http::Uri::try_from(&profile_request)?
+    );
     axum_server::bind_rustls(addr, config).serve(router).await?;
 
     Ok(())
@@ -51,9 +67,9 @@ async fn webfinger(request: WebFingerRequest) -> axum::response::Result<WebFinge
         let message = format!("{subject} does not exist");
         return Err((StatusCode::NOT_FOUND, message).into());
     }
-    let rel = Rel::new("http://webfinger.net/rel/profile-page");
+    let rel = Rel::new(PROFILE_REL);
     let response = if request.rels.is_empty() || request.rels.contains(&rel) {
-        let link = Link::builder(rel).href(format!("https://example.com/profile/{subject}"));
+        let link = Link::builder(rel).href(PROFILE_HREF);
         WebFingerResponse::builder(subject).link(link).build()
     } else {
         WebFingerResponse::builder(subject).build()

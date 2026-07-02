@@ -2734,6 +2734,7 @@ dependencies = [
  "colored_json",
  "http 1.4.2",
  "reqwest",
+ "rustls",
  "tokio",
  "tracing",
  "tracing-subscriber",

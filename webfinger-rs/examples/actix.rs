@@ -8,6 +8,9 @@ use tracing::info;
 use tracing_subscriber::EnvFilter;
 use webfinger_rs::{Link, Rel, WELL_KNOWN_PATH, WebFingerRequest, WebFingerResponse};
 
+const HOST: &str = "localhost:3000";
+const PROFILE_HREF: &str = "https://example.com/users/carol";
+const PROFILE_REL: &str = "http://webfinger.net/rel/profile-page";
 const SUBJECT: &str = "acct:carol@localhost";
 
 #[actix_web::main]
@@ -20,7 +23,21 @@ async fn main() -> Result<()> {
     let config = tls_config()?;
     let server =
         HttpServer::new(|| App::new().service(webfinger)).bind_rustls_0_23(addrs, config)?;
-    info!("Listening at https://{addrs}{WELL_KNOWN_PATH}?resource={SUBJECT}");
+    let unfiltered_request = WebFingerRequest::builder(SUBJECT)?.host(HOST).build();
+    let profile_request = WebFingerRequest::builder(SUBJECT)?
+        .host(HOST)
+        .rel(PROFILE_REL)
+        .build();
+
+    info!("Listening at https://{addrs}{WELL_KNOWN_PATH}");
+    info!(
+        "Unfiltered query: {}",
+        http::Uri::try_from(&unfiltered_request)?
+    );
+    info!(
+        "Profile-page query: {}",
+        http::Uri::try_from(&profile_request)?
+    );
     server.run().await?;
     Ok(())
 }
@@ -34,7 +51,6 @@ fn tls_config() -> Result<ServerConfig> {
         .serialize_der()
         .try_into()
         .map_err(|s: &str| eyre!(s))?;
-    // self_signed_cert.cert.
     ServerConfig::builder()
         .with_no_client_auth()
         .with_single_cert(vec![cert_chain], key_der)
@@ -49,9 +65,9 @@ async fn webfinger(request: WebFingerRequest) -> actix_web::Result<WebFingerResp
         let message = format!("{subject} does not exist");
         return Err(actix_web::error::ErrorNotFound(message))?;
     }
-    let rel = Rel::new("http://webfinger.net/rel/profile-page");
+    let rel = Rel::new(PROFILE_REL);
     let response = if request.rels.is_empty() || request.rels.contains(&rel) {
-        let link = Link::builder(rel).href(format!("https://example.com/profile/{subject}"));
+        let link = Link::builder(rel).href(PROFILE_HREF);
         WebFingerResponse::builder(subject).link(link).build()
     } else {
         WebFingerResponse::builder(subject).build()
