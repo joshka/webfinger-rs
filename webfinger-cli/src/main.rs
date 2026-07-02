@@ -69,6 +69,7 @@ impl FetchCommand {
         if self.insecure {
             warn!("ignoring TLS certificate verification errors");
         }
+        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
         let client = reqwest::Client::builder()
             .danger_accept_invalid_certs(self.insecure)
             .build()?;

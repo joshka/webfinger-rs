@@ -1,3 +1,5 @@
+use std::sync::Once;
+
 use http::Uri;
 use tracing::trace;
 
@@ -6,7 +8,16 @@ use crate::{WebFingerRequest, WebFingerResponse};
 
 struct EmptyBody;
 
+static DEFAULT_CRYPTO_PROVIDER: Once = Once::new();
+
+fn install_default_crypto_provider() {
+    DEFAULT_CRYPTO_PROVIDER.call_once(|| {
+        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+    });
+}
+
 fn webfinger_reqwest_client() -> Result<reqwest::Client, reqwest::Error> {
+    install_default_crypto_provider();
     reqwest::Client::builder().https_only(true).build()
 }
 
@@ -223,27 +234,15 @@ impl async_convert::TryFrom<reqwest::Response> for WebFingerResponse {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Once;
-
     use reqwest::Method;
 
     use super::*;
-
-    static RUSTLS_PROVIDER: Once = Once::new();
-
-    fn install_test_crypto_provider() {
-        RUSTLS_PROVIDER.call_once(|| {
-            let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
-        });
-    }
 
     /// RFC 7033 sections 4.2 and 9.1 require WebFinger clients to use HTTPS-only transport. The
     /// first-party client should reject an HTTP URL before attempting network I/O; the same Reqwest
     /// setting also applies to redirect targets.
     #[tokio::test]
     async fn default_webfinger_client_rejects_non_https_requests() {
-        install_test_crypto_provider();
-
         let client = webfinger_reqwest_client().unwrap();
         let url = "http://127.0.0.1:9/.well-known/webfinger?resource=acct:carol@example.org"
             .parse()

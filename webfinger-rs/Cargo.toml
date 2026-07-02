@@ -18,7 +18,7 @@ actix = ["dep:actix-web"]
 ## Provides integration with the Axum web framework.
 axum = ["dep:axum"]
 ## Provides integration with the Reqwest HTTP client.
-reqwest = ["dep:reqwest"]
+reqwest = ["dep:reqwest", "dep:rustls"]
 
 [dependencies]
 actix-web = { version = "4.6", optional = true, default-features = false }
@@ -28,6 +28,7 @@ http.workspace = true
 nutype.workspace = true
 percent-encoding.workspace = true
 reqwest = { workspace = true, optional = true, features = ["json"] }
+rustls = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
