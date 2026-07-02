@@ -2,7 +2,8 @@
 //!
 //! Enable the `actix` feature to:
 //!
-//! - extract [`WebFingerRequest`] from requests routed to [`crate::WELL_KNOWN_PATH`]; and
+//! - extract [`WebFingerRequest`] from handlers mounted for `GET` requests to
+//!   [`crate::WELL_KNOWN_PATH`]; and
 //! - return [`WebFingerResponse`] directly from Actix handlers as `application/jrd+json` with the
 //!   WebFinger CORS header.
 //!
@@ -26,6 +27,16 @@
 //! # let _ = app;
 //! # assert_eq!(WELL_KNOWN_PATH, "/.well-known/webfinger");
 //! ```
+//!
+//! The Actix router owns path and method matching. Mounting the handler with `web::get()` or
+//! `#[get]` at [`crate::WELL_KNOWN_PATH`] rejects other paths and non-`GET` methods before this
+//! extractor runs. The extractor itself validates the WebFinger request metadata available inside
+//! the handler: host, query parameters, percent encoding, and the `resource` URI.
+//!
+//! RFC 7033 requires HTTPS for WebFinger. Actix request metadata does not reliably identify the
+//! externally visible scheme when the application runs behind TLS termination or a reverse proxy, so
+//! this extractor does not enforce scheme. Configure TLS and forwarded-proto handling at your
+//! server or proxy boundary.
 //!
 //! If extraction fails, Actix returns `400 Bad Request` for missing or duplicated `resource`,
 //! missing host values, invalid percent encoding, or invalid resource URIs.
@@ -286,6 +297,50 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK, "{response:?}");
         let body = to_bytes(response.into_body()).await?;
         assert_eq!(body.as_ref(), b"acct:bad@example.org");
+        Ok(())
+    }
+
+    /// Relies on Actix routing to reject non-WebFinger paths before extraction.
+    ///
+    /// RFC 7033 sections 4 and 10.1 define `/.well-known/webfinger` as the WebFinger resource.
+    /// Path matching stays in the router so applications get normal Actix `404 Not Found` behavior.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4> and
+    /// <https://www.rfc-editor.org/rfc/rfc7033.html#section-10.1>.
+    #[actix_web::test]
+    async fn wrong_path_is_not_routed() -> Result {
+        let app = App::new().route(WELL_KNOWN_PATH, web::get().to(webfinger));
+        let app = test::init_service(app).await;
+        let request = test::TestRequest::get()
+            .uri("/webfinger?resource=acct%3Abad%40example.org")
+            .insert_header(("host", "example.org"))
+            .to_request();
+
+        let response = test::call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND, "{response:?}");
+        Ok(())
+    }
+
+    /// Relies on Actix routing to reject non-`GET` requests before extraction.
+    ///
+    /// RFC 7033 section 4.2 specifies a `GET` request. Method matching stays in the router so
+    /// applications get normal Actix routing behavior for other methods.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.2>.
+    #[actix_web::test]
+    async fn wrong_method_is_not_routed() -> Result {
+        let app = App::new().route(WELL_KNOWN_PATH, web::get().to(webfinger));
+        let app = test::init_service(app).await;
+        let uri = format!("{WELL_KNOWN_PATH}?resource=acct%3Abad%40example.org");
+        let request = test::TestRequest::post()
+            .uri(&uri)
+            .insert_header(("host", "example.org"))
+            .to_request();
+
+        let response = test::call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND, "{response:?}");
         Ok(())
     }
 

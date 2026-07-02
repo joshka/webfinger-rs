@@ -2,7 +2,8 @@
 //!
 //! Enable the `axum` feature to:
 //!
-//! - extract [`WebFingerRequest`] from `GET` requests to [`crate::WELL_KNOWN_PATH`]; and
+//! - extract [`WebFingerRequest`] from handlers mounted for `GET` requests to
+//!   [`crate::WELL_KNOWN_PATH`]; and
 //! - return [`WebFingerResponse`] directly from Axum handlers as `application/jrd+json` with the
 //!   WebFinger CORS header.
 //!
@@ -24,6 +25,16 @@
 //! let app = Router::<()>::new().route(WELL_KNOWN_PATH, get(webfinger));
 //! # let _ = app;
 //! ```
+//!
+//! The Axum router owns path and method matching. Mounting the handler with `get` at
+//! [`crate::WELL_KNOWN_PATH`] rejects other paths and non-`GET` methods before this extractor runs.
+//! The extractor itself validates the WebFinger request metadata available inside the handler:
+//! host, query parameters, percent encoding, and the `resource` URI.
+//!
+//! RFC 7033 requires HTTPS for WebFinger. Axum request parts do not reliably identify the
+//! externally visible scheme when the application runs behind TLS termination or a reverse proxy, so
+//! this extractor does not enforce scheme. Configure TLS and forwarded-proto handling at your
+//! server or proxy boundary.
 //!
 //! If extraction fails, Axum receives [`Rejection`], which returns `400 Bad Request` with a plain
 //! text message for missing or duplicated `resource`, missing host values, invalid percent
@@ -229,7 +240,7 @@ impl<S: Send + Sync> FromRequestParts<S> for WebFingerRequest {
 mod tests {
     use axum::body::Body;
     use axum::routing::get;
-    use http::{Request, Response};
+    use http::{Method, Request, Response};
     use http_body_util::BodyExt;
     use tower::ServiceExt;
 
@@ -339,6 +350,50 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK, "{response:?}");
         let body = response.into_text().await?;
         assert_eq!(body, r#"{"subject":"acct:carol@example.com","links":[]}"#);
+        Ok(())
+    }
+
+    /// Relies on Axum routing to reject non-WebFinger paths before extraction.
+    ///
+    /// RFC 7033 sections 4 and 10.1 define `/.well-known/webfinger` as the WebFinger resource.
+    /// Path matching stays in the router so applications get normal Axum `404 Not Found` behavior.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4> and
+    /// <https://www.rfc-editor.org/rfc/rfc7033.html#section-10.1>.
+    #[tokio::test]
+    async fn wrong_path_is_not_routed() -> Result {
+        let request = Request::builder()
+            .uri(format!("/webfinger?resource={VALID_RESOURCE}"))
+            .header(HOST, "example.com")
+            .body(Body::empty())?;
+
+        let response = app().oneshot(request).await?;
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND, "{response:?}");
+        Ok(())
+    }
+
+    /// Relies on Axum routing to reject non-`GET` requests before extraction.
+    ///
+    /// RFC 7033 section 4.2 specifies a `GET` request. Method matching stays in the router so
+    /// applications get normal Axum `405 Method Not Allowed` behavior.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.2>.
+    #[tokio::test]
+    async fn wrong_method_is_not_routed() -> Result {
+        let request = Request::builder()
+            .method(Method::POST)
+            .uri(format!("{WELL_KNOWN_PATH}?resource={VALID_RESOURCE}"))
+            .header(HOST, "example.com")
+            .body(Body::empty())?;
+
+        let response = app().oneshot(request).await?;
+
+        assert_eq!(
+            response.status(),
+            StatusCode::METHOD_NOT_ALLOWED,
+            "{response:?}"
+        );
         Ok(())
     }
 
