@@ -12,6 +12,9 @@
 //! - a required `resource` query parameter; and
 //! - zero or more `rel` query parameters, encoded as repeated keys rather than a list.
 //!
+//! The `resource` value must be an absolute URI such as `acct:carol@example.com` or
+//! `https://example.com/users/carol`; relative references are rejected as malformed requests.
+//!
 //! In practice, route handlers should usually be mounted like this:
 //!
 //! ```rust
@@ -38,7 +41,7 @@
 //!
 //! If extraction fails, Axum receives [`Rejection`], which returns `400 Bad Request` with a plain
 //! text message for missing or duplicated `resource`, missing host values, invalid percent
-//! encoding, or invalid resource URIs.
+//! encoding, relative resource references, or invalid resource URIs.
 //!
 //! See also [`WebFingerRequest`] for the extractor impl, [`WebFingerResponse`] for the responder
 //! impl, and the [Axum example] for a runnable server.
@@ -52,13 +55,12 @@ use axum::extract::FromRequestParts;
 use axum::response::{IntoResponse, Response as AxumResponse};
 use http::header::{self, HOST};
 use http::request::Parts;
-use http::uri::InvalidUri;
 use http::{HeaderValue, StatusCode};
 use tracing::trace;
 
 use crate::http::CORS_ALLOW_ORIGIN;
 use crate::query::{RequestParams, RequestParamsError};
-use crate::{Rel, WebFingerRequest, WebFingerResponse};
+use crate::{Rel, ResourceError, WebFingerRequest, WebFingerResponse};
 
 const JRD_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/jrd+json");
 const CORS_ALLOW_ORIGIN_HEADER: HeaderValue = HeaderValue::from_static(CORS_ALLOW_ORIGIN);
@@ -132,18 +134,18 @@ impl IntoResponse for WebFingerResponse {
 /// - [`Rejection::MissingHost`] when neither the request URI nor the `Host` header provides an
 ///   authority;
 /// - [`Rejection::InvalidQueryString`] when the query string is missing `resource`, contains more
-///   than one `resource`, or contains malformed percent encoding; and
-/// - [`Rejection::InvalidResource`] when `resource` is present but cannot be parsed as an
-///   [`http::Uri`].
+///   than one `resource`, or contains malformed percent encoding;
+/// - [`Rejection::InvalidResource`] when the `resource` value is not an absolute URI.
+#[derive(Debug)]
 pub enum Rejection {
     /// The WebFinger query string is missing required data or is malformed.
     InvalidQueryString(String),
 
+    /// The `resource` query parameter is not an absolute URI.
+    InvalidResource(ResourceError),
+
     /// The `Host` header is missing.
     MissingHost,
-
-    /// The `resource` query parameter is invalid.
-    InvalidResource(InvalidUri),
 }
 
 impl IntoResponse for Rejection {
@@ -157,7 +159,7 @@ impl IntoResponse for Rejection {
         let message = match self {
             Rejection::MissingHost => "missing host".to_string(),
             Rejection::InvalidQueryString(error) => error,
-            Rejection::InvalidResource(e) => format!("invalid resource: {e}"),
+            Rejection::InvalidResource(error) => format!("invalid resource: {error}"),
         };
         (StatusCode::BAD_REQUEST, message).into_response()
     }
@@ -165,7 +167,10 @@ impl IntoResponse for Rejection {
 
 impl From<RequestParamsError> for Rejection {
     fn from(error: RequestParamsError) -> Self {
-        Rejection::InvalidQueryString(error.to_string())
+        match error {
+            RequestParamsError::InvalidResource(error) => Rejection::InvalidResource(error),
+            error => Rejection::InvalidQueryString(error.to_string()),
+        }
     }
 }
 
@@ -224,13 +229,12 @@ impl<S: Send + Sync> FromRequestParts<S> for WebFingerRequest {
             .map(str::to_string)
             .ok_or(Rejection::MissingHost)?;
 
-        let query = parts.uri.query().unwrap_or("").parse::<RequestParams>()?;
-        let resource = query.resource.parse().map_err(Rejection::InvalidResource)?;
+        let query: RequestParams = parts.uri.query().unwrap_or("").parse()?;
         let rels = query.rel.into_iter().map(Rel::from).collect();
 
         Ok(WebFingerRequest {
             host,
-            resource,
+            resource: query.resource,
             rels,
         })
     }
@@ -452,6 +456,38 @@ mod tests {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{response:?}");
         let body = response.into_text().await?;
         assert_eq!(body, "invalid resource: invalid authority");
+        Ok(())
+    }
+
+    /// Preserves the typed resource parse error until Axum renders the rejection.
+    #[test]
+    fn invalid_resource_rejection_preserves_resource_error() {
+        let error = "resource=/relative".parse::<RequestParams>().unwrap_err();
+        let rejection = Rejection::from(error);
+
+        assert!(matches!(
+            rejection,
+            Rejection::InvalidResource(ResourceError::RelativeReference)
+        ));
+    }
+
+    /// Rejects relative resource references at the Axum extractor boundary.
+    ///
+    /// RFC 7033 identifies the WebFinger query target as a URI, not a relative reference. Axum
+    /// handlers should not receive ambiguous targets such as local paths or bare names.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1> and
+    /// <https://www.rfc-editor.org/rfc/rfc3986.html#section-4.1>.
+    #[tokio::test]
+    async fn relative_resource_is_bad_request() -> Result {
+        let uri = format!("https://example.com{WELL_KNOWN_PATH}?resource=/relative");
+        let request = Request::builder().uri(uri).body(Body::empty())?;
+
+        let response = app().oneshot(request).await?;
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{response:?}");
+        let body = response.into_text().await?;
+        assert_eq!(body, "invalid resource: resource must be an absolute URI");
         Ok(())
     }
 

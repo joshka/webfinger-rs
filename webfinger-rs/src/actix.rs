@@ -12,6 +12,9 @@
 //! - a required `resource` query parameter; and
 //! - zero or more repeated `rel` query parameters.
 //!
+//! The `resource` value must be an absolute URI such as `acct:carol@example.com` or
+//! `https://example.com/users/carol`; relative references are rejected as malformed requests.
+//!
 //! In practice, route handlers should usually be mounted like this:
 //!
 //! ```rust
@@ -39,7 +42,8 @@
 //! server or proxy boundary.
 //!
 //! If extraction fails, Actix returns `400 Bad Request` for missing or duplicated `resource`,
-//! missing host values, invalid percent encoding, or invalid resource URIs.
+//! missing host values, invalid percent encoding, relative resource references, or invalid resource
+//! URIs.
 //!
 //! See also [`WebFingerRequest`] for the extractor impl, [`WebFingerResponse`] for the responder
 //! impl, and the [Actix example] for a runnable server.
@@ -177,15 +181,11 @@ fn extract_request(req: &HttpRequest) -> Result<WebFingerRequest, ActixError> {
         .or_else(|| req.headers().get("host").and_then(|h| h.to_str().ok()))
         .map(|h| h.to_string())
         .ok_or(ErrorBadRequest("missing host"))?;
-    let query = req.query_string().parse::<RequestParams>()?;
-    let resource = query
-        .resource
-        .parse()
-        .map_err(|error| ErrorBadRequest(format!("invalid resource: {error}")))?;
+    let query: RequestParams = req.query_string().parse()?;
     let rels = query.rel.into_iter().map(Rel::from).collect();
     Ok(WebFingerRequest {
         host,
-        resource,
+        resource: query.resource,
         rels,
     })
 }
@@ -365,6 +365,34 @@ mod tests {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{response:?}");
         let body = to_bytes(response.into_body()).await?;
         assert_eq!(body.as_ref(), b"invalid resource: invalid authority");
+        Ok(())
+    }
+
+    /// Rejects relative resource references at the Actix extractor boundary.
+    ///
+    /// RFC 7033 identifies the WebFinger query target as a URI, not a relative reference. Actix
+    /// handlers should not receive ambiguous targets such as local paths or bare names.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1> and
+    /// <https://www.rfc-editor.org/rfc/rfc3986.html#section-4.1>.
+    #[actix_web::test]
+    async fn relative_resource_is_bad_request() -> Result {
+        let app = App::new().route(WELL_KNOWN_PATH, web::get().to(webfinger));
+        let app = test::init_service(app).await;
+        let uri = format!("{WELL_KNOWN_PATH}?resource=/relative");
+        let request = test::TestRequest::get()
+            .uri(&uri)
+            .insert_header(("host", "example.org"))
+            .to_request();
+
+        let response = test::call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{response:?}");
+        let body = to_bytes(response.into_body()).await?;
+        assert_eq!(
+            body.as_ref(),
+            b"invalid resource: resource must be an absolute URI",
+        );
         Ok(())
     }
 

@@ -16,6 +16,9 @@ use nutype::nutype;
     AsRef,
     Deref,
     PartialEq,
+    PartialOrd,
     Eq,
+    Ord,
+    Hash,
 ))]
 pub struct Rel(String);
