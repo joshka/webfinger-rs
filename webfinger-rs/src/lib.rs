@@ -258,8 +258,8 @@
 
 pub use crate::error::Error;
 pub use crate::types::{
-    Link, LinkBuilder, Rel, Request as WebFingerRequest, RequestBuilder, Resource, ResourceError,
-    Response as WebFingerResponse, ResponseBuilder, Title,
+    JrdUri, Link, LinkBuilder, Rel, Request as WebFingerRequest, RequestBuilder, Resource,
+    ResourceError, Response as WebFingerResponse, ResponseBuilder, Title,
 };
 
 #[cfg(feature = "actix")]

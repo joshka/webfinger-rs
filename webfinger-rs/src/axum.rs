@@ -60,7 +60,7 @@ use tracing::trace;
 
 use crate::http::CORS_ALLOW_ORIGIN;
 use crate::query::{RequestParams, RequestParamsError};
-use crate::{Error, Rel, ResourceError, WebFingerRequest, WebFingerResponse};
+use crate::{Rel, ResourceError, WebFingerRequest, WebFingerResponse};
 
 const JRD_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/jrd+json");
 const CORS_ALLOW_ORIGIN_HEADER: HeaderValue = HeaderValue::from_static(CORS_ALLOW_ORIGIN);
@@ -135,8 +135,7 @@ impl IntoResponse for WebFingerResponse {
 ///   authority;
 /// - [`Rejection::InvalidQueryString`] when the query string is missing `resource`, contains more
 ///   than one `resource`, or contains malformed percent encoding;
-/// - [`Rejection::InvalidResource`] when the `resource` value is not an absolute URI; and
-/// - [`Rejection::InvalidRel`] when a `rel` value is not a URI or registered relation type.
+/// - [`Rejection::InvalidResource`] when the `resource` value is not an absolute URI.
 #[derive(Debug)]
 pub enum Rejection {
     /// The WebFinger query string is missing required data or is malformed.
@@ -145,11 +144,11 @@ pub enum Rejection {
     /// The `resource` query parameter is not an absolute URI.
     InvalidResource(ResourceError),
 
-    /// A `rel` query parameter is not a valid relation type.
-    InvalidRel(Error),
-
     /// The `Host` header is missing.
     MissingHost,
+
+    /// A `rel` query parameter is invalid.
+    InvalidRel(crate::Error),
 }
 
 impl IntoResponse for Rejection {
@@ -289,7 +288,7 @@ mod tests {
 
     /// Returns a minimal JRD response so tests can assert resource extraction through Axum.
     async fn webfinger(request: WebFingerRequest) -> impl IntoResponse {
-        WebFingerResponse::builder(request.resource.to_string()).build()
+        WebFingerResponse::builder(&request.resource).build()
     }
 
     /// Returns extracted relation filters so tests can assert RFC 7033 repeated `rel` handling.
