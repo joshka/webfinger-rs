@@ -11,7 +11,11 @@ pub enum ResourceError {
     #[error("resource must be an absolute URI")]
     RelativeReference,
 
-    /// The resource contains bytes outside the URI character set.
+    /// The resource contains raw text outside the URI character set.
+    ///
+    /// Resource URI text must be ASCII and every byte must be allowed by RFC 3986 as an
+    /// `unreserved`, `reserved`, or percent-escape marker byte. Characters outside that set, such
+    /// as `{`, `|`, `^`, and non-ASCII code points, must be percent-encoded before parsing.
     #[error("resource contains invalid URI characters")]
     InvalidCharacters,
 
@@ -31,19 +35,74 @@ pub enum ResourceError {
 /// A WebFinger resource URI.
 ///
 /// RFC 7033 uses the `resource` query parameter for the query target, which is a URI rather than a
-/// relative reference. `Resource` stores that URI text after checking that it has an RFC 3986
-/// scheme and contains only ASCII URI text. Hierarchical `http` and `https` resources are also
-/// required to use the `//authority` form from RFC 3986 section 3.2 before their host is exposed
-/// through [`Resource::host`].
+/// relative reference. `Resource` stores that URI text after checking the URI syntax that this crate
+/// relies on at request boundaries.
+///
+/// Validation is intentionally conservative:
+///
+/// - the value must start with an RFC 3986 URI scheme;
+/// - the value must contain only raw RFC 3986 URI characters;
+/// - every `%` must start a complete percent escape;
+/// - raw non-ASCII text must already be percent-encoded; and
+/// - `http` and `https` resources must use the `//authority` form before their host is exposed
+///   through [`Resource::host`].
 ///
 /// Common valid resources include `acct:carol@example.com` and
 /// `https://example.org/users/carol`.
 ///
+/// # Examples
+///
+/// Parse a valid `acct:` resource:
+///
+/// ```rust
+/// use webfinger_rs::Resource;
+///
+/// let resource = "acct:carol@example.com".parse::<Resource>()?;
+/// assert_eq!(resource.as_str(), "acct:carol@example.com");
+/// # Ok::<(), webfinger_rs::ResourceError>(())
+/// ```
+///
+/// Raw characters outside the URI character set are rejected. Percent-encode them inside the
+/// resource URI before putting that URI in the outer WebFinger query string:
+///
+/// ```rust
+/// use webfinger_rs::{Resource, ResourceError};
+///
+/// let error = "acct:carol{admin}@example.com"
+///     .parse::<Resource>()
+///     .unwrap_err();
+/// assert!(matches!(error, ResourceError::InvalidCharacters));
+///
+/// let resource = "acct:carol%7Badmin%7D@example.com".parse::<Resource>()?;
+/// assert_eq!(resource.as_str(), "acct:carol%7Badmin%7D@example.com");
+/// # Ok::<(), webfinger_rs::ResourceError>(())
+/// ```
+///
+/// HTTP(S) resources must include an authority so host inference cannot treat opaque URI text as a
+/// host:
+///
+/// ```rust
+/// use webfinger_rs::{Resource, ResourceError};
+///
+/// let error = "https:example.org/profile"
+///     .parse::<Resource>()
+///     .unwrap_err();
+/// assert!(matches!(error, ResourceError::MissingHttpAuthority));
+///
+/// let resource = "https://example.org/profile".parse::<Resource>()?;
+/// assert_eq!(resource.host(), Some("example.org"));
+/// # Ok::<(), webfinger_rs::ResourceError>(())
+/// ```
+///
 /// See [RFC 7033 section 4.1] for the `resource` parameter, [RFC 3986 section 2.1] for percent
-/// encoding, [RFC 3986 section 3.1] for URI schemes, and [RFC 3986 section 3.2] for authority.
+/// encoding, [RFC 3986 section 2.2] for reserved characters, [RFC 3986 section 2.3] for
+/// unreserved characters, [RFC 3986 section 3.1] for URI schemes, and [RFC 3986 section 3.2] for
+/// authority.
 ///
 /// [RFC 7033 section 4.1]: https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1
 /// [RFC 3986 section 2.1]: https://www.rfc-editor.org/rfc/rfc3986.html#section-2.1
+/// [RFC 3986 section 2.2]: https://www.rfc-editor.org/rfc/rfc3986.html#section-2.2
+/// [RFC 3986 section 2.3]: https://www.rfc-editor.org/rfc/rfc3986.html#section-2.3
 /// [RFC 3986 section 3.1]: https://www.rfc-editor.org/rfc/rfc3986.html#section-3.1
 /// [RFC 3986 section 3.2]: https://www.rfc-editor.org/rfc/rfc3986.html#section-3.2
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -127,9 +186,7 @@ fn validate_resource(resource: &str) -> Result<Option<String>, ResourceError> {
     if !resource.is_ascii() {
         return Err(ResourceError::InvalidCharacters);
     }
-    if resource.bytes().any(|byte| byte <= b' ' || byte == 0x7f) {
-        return Err(ResourceError::InvalidCharacters);
-    }
+    validate_uri_characters(resource)?;
     validate_percent_escapes(resource)?;
     if scheme.eq_ignore_ascii_case("http") || scheme.eq_ignore_ascii_case("https") {
         // WebFinger only needs host inference for hierarchical HTTP(S) resources. RFC 3986
@@ -164,6 +221,46 @@ fn validate_percent_escapes(resource: &str) -> Result<(), ResourceError> {
         }
     }
     Ok(())
+}
+
+fn validate_uri_characters(resource: &str) -> Result<(), ResourceError> {
+    if resource.bytes().all(is_uri_character) {
+        Ok(())
+    } else {
+        Err(ResourceError::InvalidCharacters)
+    }
+}
+
+fn is_uri_character(byte: u8) -> bool {
+    matches!(
+        byte,
+        b'A'..=b'Z'
+            | b'a'..=b'z'
+            | b'0'..=b'9'
+            | b'-'
+            | b'.'
+            | b'_'
+            | b'~'
+            | b':'
+            | b'/'
+            | b'?'
+            | b'#'
+            | b'['
+            | b']'
+            | b'@'
+            | b'!'
+            | b'$'
+            | b'&'
+            | b'\''
+            | b'('
+            | b')'
+            | b'*'
+            | b'+'
+            | b','
+            | b';'
+            | b'='
+            | b'%'
+    )
 }
 
 fn scheme(resource: &str) -> Option<&str> {
@@ -245,6 +342,34 @@ mod tests {
             matches!(error, ResourceError::InvalidCharacters),
             "expected invalid-character error, got {error:?}",
         );
+    }
+
+    /// Rejects raw ASCII characters outside the RFC 3986 URI character set.
+    #[test]
+    fn rejects_invalid_raw_uri_characters() {
+        for resource in [
+            "acct:carol{bad}@example.org",
+            "acct:carol|bad@example.org",
+            "acct:carol^bad@example.org",
+            "acct:carol`bad@example.org",
+        ] {
+            let error = resource.parse::<Resource>().unwrap_err();
+
+            assert!(
+                matches!(error, ResourceError::InvalidCharacters),
+                "expected invalid-character error for {resource:?}, got {error:?}",
+            );
+        }
+    }
+
+    /// Accepts characters outside the raw URI character set when they are percent-encoded.
+    #[test]
+    fn accepts_percent_encoded_invalid_raw_characters() {
+        let resource = "acct:carol%7Bbad%7D@example.org"
+            .parse::<Resource>()
+            .unwrap();
+
+        assert_eq!(resource.as_str(), "acct:carol%7Bbad%7D@example.org");
     }
 
     /// Rejects malformed percent escape syntax inside resource URIs.
