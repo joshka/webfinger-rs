@@ -236,7 +236,7 @@ impl Link {
     }
 
     /// Create a new [`LinkBuilder`] with the given relation type.
-    pub fn builder<R: Into<Rel>>(rel: R) -> LinkBuilder {
+    pub fn builder<R: AsRef<str>>(rel: R) -> LinkBuilder {
         LinkBuilder::new(rel)
     }
 }
@@ -251,9 +251,9 @@ pub struct LinkBuilder {
 
 impl LinkBuilder {
     /// Create a new link builder with the given relation type.
-    pub fn new<R: Into<Rel>>(rel: R) -> Self {
+    pub fn new<R: AsRef<str>>(rel: R) -> Self {
         Self {
-            link: Link::new(rel.into()),
+            link: Link::new(Rel::new(rel)),
         }
     }
 

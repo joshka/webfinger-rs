@@ -225,8 +225,8 @@ impl Builder {
     ///     .build();
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn rel<R: Into<Rel>>(mut self, rel: R) -> Self {
-        self.request.rels.push(rel.into());
+    pub fn rel<R: AsRef<str>>(mut self, rel: R) -> Self {
+        self.request.rels.push(Rel::new(rel));
         self
     }
 
@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn example_3_1() {
         let resource = "acct:carol@example.com".parse().unwrap();
-        let rel = Rel::from("http://openid.net/specs/connect/1.0/issuer");
+        let rel = Rel::new("http://openid.net/specs/connect/1.0/issuer");
         let host = "example.com".parse().unwrap();
         let query = Request {
             host,

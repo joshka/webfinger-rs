@@ -21,4 +21,8 @@ pub enum Error {
     /// A WebFinger resource is malformed.
     #[error(transparent)]
     InvalidResource(#[from] ResourceError),
+
+    /// A WebFinger relation type was not a URI or registered relation type.
+    #[error("invalid relation type: {0}")]
+    InvalidRel(String),
 }

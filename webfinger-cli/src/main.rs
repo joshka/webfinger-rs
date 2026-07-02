@@ -63,7 +63,7 @@ impl FetchCommand {
         let request = WebFingerRequest {
             host: self.host(&resource)?,
             resource,
-            rels: self.link_relations(),
+            rels: self.link_relations()?,
         };
         debug!("fetching webfinger resource: {:?}", request);
         if self.insecure {
@@ -99,8 +99,12 @@ impl FetchCommand {
         self.resource.parse().wrap_err("invalid resource")
     }
 
-    fn link_relations(&self) -> Vec<Rel> {
-        self.rel.iter().map(|s| Rel::from(s.as_str())).collect()
+    fn link_relations(&self) -> Result<Vec<Rel>> {
+        self.rel
+            .iter()
+            .map(Rel::try_new)
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .wrap_err("invalid relation type")
     }
 }
 
