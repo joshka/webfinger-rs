@@ -3,7 +3,7 @@
 //! Enable the `actix` feature to:
 //!
 //! - extract [`WebFingerRequest`] from requests routed to [`crate::WELL_KNOWN_PATH`]; and
-//! - return [`WebFingerResponse`] directly from Actix handlers.
+//! - return [`WebFingerResponse`] directly from Actix handlers with the WebFinger CORS header.
 //!
 //! The extractor reads the standard WebFinger query shape from [RFC 7033 section 4.1]:
 //!
@@ -40,22 +40,24 @@ use std::future::{Ready, ready};
 
 use actix_web::dev::Payload;
 use actix_web::error::ErrorBadRequest;
+use actix_web::http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue};
 use actix_web::web::Json;
 use actix_web::{Error as ActixError, FromRequest, HttpRequest, HttpResponse, Responder};
 use tracing::trace;
 
+use crate::http::CORS_ALLOW_ORIGIN;
 use crate::query::{RequestParams, RequestParamsError};
 use crate::{Rel, WebFingerRequest, WebFingerResponse};
+
+const CORS_ALLOW_ORIGIN_HEADER: HeaderValue = HeaderValue::from_static(CORS_ALLOW_ORIGIN);
 
 impl Responder for WebFingerResponse {
     /// Converts a [`WebFingerResponse`] into an Actix response.
     ///
     /// This delegates to [`actix_web::web::Json`], so the body is serialized as JSON and the
     /// response `Content-Type` follows Actix's JSON responder behavior, which is currently
-    /// `application/json`.
-    ///
-    /// Unlike the Axum integration, this responder does not currently override the content type to
-    /// `application/jrd+json`.
+    /// `application/json`. It also sets `Access-Control-Allow-Origin: *` as recommended by RFC
+    /// 7033 section 5.
     ///
     /// See also the [`crate::actix`] module docs and the [Actix example].
     ///
@@ -86,8 +88,12 @@ impl Responder for WebFingerResponse {
     ///     https://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/actix.rs
     type Body = <Json<WebFingerResponse> as Responder>::Body;
 
-    fn respond_to(self, _request: &HttpRequest) -> HttpResponse<Self::Body> {
-        Json(self).respond_to(_request)
+    fn respond_to(self, request: &HttpRequest) -> HttpResponse<Self::Body> {
+        let mut response = Json(self).respond_to(request);
+        response
+            .headers_mut()
+            .insert(ACCESS_CONTROL_ALLOW_ORIGIN, CORS_ALLOW_ORIGIN_HEADER);
+        response
     }
 }
 
@@ -200,6 +206,33 @@ mod tests {
             .map(ToString::to_string)
             .collect::<Vec<_>>();
         HttpResponse::Ok().json(rels)
+    }
+
+    /// Returns a minimal JRD so tests can assert responder-owned WebFinger headers.
+    async fn webfinger_response() -> WebFingerResponse {
+        WebFingerResponse::new("acct:carol@example.com")
+    }
+
+    /// Includes the RFC 7033 CORS header on successful JRD responses.
+    ///
+    /// WebFinger resources must be queryable from browsers, and RFC 7033 section 5 recommends the
+    /// least restrictive `Access-Control-Allow-Origin` value for public WebFinger resources.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-5>.
+    #[actix_web::test]
+    async fn successful_response_sets_cors_header() -> Result {
+        let app = App::new().route(WELL_KNOWN_PATH, web::get().to(webfinger_response));
+        let app = test::init_service(app).await;
+        let request = test::TestRequest::get().uri(WELL_KNOWN_PATH).to_request();
+
+        let response = test::call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::OK, "{response:?}");
+        assert_eq!(
+            response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN),
+            Some(&CORS_ALLOW_ORIGIN_HEADER),
+        );
+        Ok(())
     }
 
     /// Accepts a percent-encoded `acct:` resource without panicking.

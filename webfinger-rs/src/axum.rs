@@ -3,7 +3,8 @@
 //! Enable the `axum` feature to:
 //!
 //! - extract [`WebFingerRequest`] from `GET` requests to [`crate::WELL_KNOWN_PATH`]; and
-//! - return [`WebFingerResponse`] directly from Axum handlers as `application/jrd+json`.
+//! - return [`WebFingerResponse`] directly from Axum handlers as `application/jrd+json` with the
+//!   WebFinger CORS header.
 //!
 //! The extractor expects the standard WebFinger query shape from [RFC 7033 section 4.1]:
 //!
@@ -44,16 +45,19 @@ use http::uri::InvalidUri;
 use http::{HeaderValue, StatusCode};
 use tracing::trace;
 
+use crate::http::CORS_ALLOW_ORIGIN;
 use crate::query::{RequestParams, RequestParamsError};
 use crate::{Rel, WebFingerRequest, WebFingerResponse};
 
 const JRD_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/jrd+json");
+const CORS_ALLOW_ORIGIN_HEADER: HeaderValue = HeaderValue::from_static(CORS_ALLOW_ORIGIN);
 
 impl IntoResponse for WebFingerResponse {
     /// Converts a [`WebFingerResponse`] into an Axum response.
     ///
-    /// This serializes the body as JSON and sets the `Content-Type` header to
-    /// `application/jrd+json`, which is the JRD media type used by WebFinger.
+    /// This serializes the body as JSON, sets the `Content-Type` header to
+    /// `application/jrd+json`, and allows cross-origin browser requests with
+    /// `Access-Control-Allow-Origin: *` as recommended by RFC 7033 section 5.
     ///
     /// Handlers can therefore return [`WebFingerResponse`] directly without manually wrapping it in
     /// [`axum::Json`] or setting the response header themselves.
@@ -93,7 +97,17 @@ impl IntoResponse for WebFingerResponse {
     /// [Axum example]:
     ///     https://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/axum.rs
     fn into_response(self) -> AxumResponse {
-        ([(header::CONTENT_TYPE, JRD_CONTENT_TYPE)], Json(self)).into_response()
+        (
+            [
+                (header::CONTENT_TYPE, JRD_CONTENT_TYPE),
+                (
+                    header::ACCESS_CONTROL_ALLOW_ORIGIN,
+                    CORS_ALLOW_ORIGIN_HEADER,
+                ),
+            ],
+            Json(self),
+        )
+            .into_response()
     }
 }
 
@@ -283,6 +297,27 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK, "{response:?}");
         let body = response.into_text().await?;
         assert_eq!(body, r#"{"subject":"acct:carol@example.com","links":[]}"#);
+        Ok(())
+    }
+
+    /// Includes the RFC 7033 CORS header on successful JRD responses.
+    ///
+    /// WebFinger resources must be queryable from browsers, and RFC 7033 section 5 recommends the
+    /// least restrictive `Access-Control-Allow-Origin` value for public WebFinger resources.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-5>.
+    #[tokio::test]
+    async fn successful_response_sets_cors_header() -> Result {
+        let uri = format!("https://example.com{WELL_KNOWN_PATH}?resource={VALID_RESOURCE}");
+        let request = Request::builder().uri(uri).body(Body::empty())?;
+
+        let response = app().oneshot(request).await?;
+
+        assert_eq!(response.status(), StatusCode::OK, "{response:?}");
+        assert_eq!(
+            response.headers().get(header::ACCESS_CONTROL_ALLOW_ORIGIN),
+            Some(&CORS_ALLOW_ORIGIN_HEADER),
+        );
         Ok(())
     }
 

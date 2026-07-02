@@ -6,6 +6,8 @@ use percent_encoding::{AsciiSet, utf8_percent_encode};
 
 use crate::{WELL_KNOWN_PATH, WebFingerRequest, WebFingerResponse};
 
+pub(crate) const CORS_ALLOW_ORIGIN: &str = "*";
+
 /// The set of values to percent encode
 ///
 /// Notably, this set does not include the `@`, `:`, `?`, and `/` characters which are allowed by
@@ -82,6 +84,7 @@ impl TryFrom<&WebFingerResponse> for http::Response<()> {
     fn try_from(_: &WebFingerResponse) -> Result<http::Response<()>, http::Error> {
         http::Response::builder()
             .header("Content-Type", "application/jrd+json")
+            .header("Access-Control-Allow-Origin", CORS_ALLOW_ORIGIN)
             .body(())
     }
 }
