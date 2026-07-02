@@ -22,6 +22,10 @@ pub enum Error {
     #[error(transparent)]
     InvalidResource(#[from] ResourceError),
 
+    /// A WebFinger JRD field expected an absolute URI string.
+    #[error("invalid JRD URI: {0}")]
+    InvalidJrdUri(String),
+
     /// A WebFinger relation type was not a URI or registered relation type.
     #[error("invalid relation type: {0}")]
     InvalidRel(String),

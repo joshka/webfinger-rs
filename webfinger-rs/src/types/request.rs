@@ -86,7 +86,7 @@ use crate::{Error, Rel, Resource};
 ///
 /// async fn handler(request: WebFingerRequest) -> WebFingerResponse {
 ///     // ... handle the request ...
-/// # WebFingerResponse::new("")
+/// # WebFingerResponse::new("acct:carol@example.com")
 /// }
 /// ```
 #[serde_as]
