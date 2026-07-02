@@ -79,6 +79,14 @@
 //!
 //! See: [RFC 7033 section 4.1] for the query-construction rules and percent-encoding details.
 //!
+//! Server integrations split that contract across the normal web-framework boundary:
+//!
+//! - mount the handler as `GET` at [`WELL_KNOWN_PATH`] so the router rejects other paths and
+//!   methods;
+//! - configure TLS and forwarded-proto handling at the server or reverse-proxy boundary; and
+//! - let the [`crate::axum`] or [`crate::actix`] extractor validate the request host, query
+//!   parameters, percent encoding, and `resource` URI.
+//!
 //! A successful JRD response might look like this:
 //!
 //! ```json
