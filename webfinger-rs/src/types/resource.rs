@@ -1,0 +1,255 @@
+use std::fmt;
+use std::str::FromStr;
+
+use http::Uri;
+
+/// Errors that can occur while parsing a WebFinger resource URI.
+#[non_exhaustive]
+#[derive(Debug, thiserror::Error)]
+pub enum ResourceError {
+    /// The resource is a relative reference instead of an absolute URI.
+    #[error("resource must be an absolute URI")]
+    RelativeReference,
+
+    /// The resource contains bytes outside the URI character set.
+    #[error("resource contains invalid URI characters")]
+    InvalidCharacters,
+
+    /// The resource contains a malformed percent escape.
+    #[error("resource contains invalid percent encoding")]
+    InvalidPercentEncoding,
+
+    /// The resource is an invalid HTTP or HTTPS URI.
+    #[error(transparent)]
+    InvalidHttpUri(#[from] http::uri::InvalidUri),
+}
+
+/// A WebFinger resource URI.
+///
+/// RFC 7033 uses the `resource` query parameter for the query target, which is a URI rather than a
+/// relative reference. `Resource` stores that URI text after checking that it has an RFC 3986
+/// scheme and contains only ASCII URI text. Hierarchical `http` and `https` resources are also
+/// parsed with [`http::Uri`] so malformed authorities are rejected.
+///
+/// Common valid resources include `acct:carol@example.com` and
+/// `https://example.org/users/carol`.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Resource {
+    text: String,
+    host: Option<String>,
+}
+
+impl Resource {
+    /// Returns the resource URI as a string slice.
+    pub fn as_str(&self) -> &str {
+        &self.text
+    }
+
+    /// Returns the resource as an [`http::Uri`] when it fits that representation.
+    ///
+    /// WebFinger resources can use schemes such as `acct:` that are valid URI strings but do not
+    /// expose a host through [`http::Uri`]. This accessor is mainly useful for hierarchical
+    /// resources such as `https://example.org/users/carol`.
+    pub fn uri(&self) -> Option<Uri> {
+        Uri::try_from(self.as_str()).ok()
+    }
+
+    /// Returns the host from the resource's [`http::Uri`] representation, when present.
+    ///
+    /// URI schemes such as `acct:` do not have a host in [`http::Uri`], so this returns `None` for
+    /// those resources.
+    pub fn host(&self) -> Option<&str> {
+        self.host.as_deref()
+    }
+}
+
+impl fmt::Display for Resource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.text)
+    }
+}
+
+impl AsRef<str> for Resource {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl FromStr for Resource {
+    type Err = ResourceError;
+
+    fn from_str(resource: &str) -> Result<Self, Self::Err> {
+        let host = validate_resource(resource)?;
+        Ok(Self {
+            text: resource.to_string(),
+            host,
+        })
+    }
+}
+
+impl TryFrom<String> for Resource {
+    type Error = ResourceError;
+
+    fn try_from(resource: String) -> Result<Self, Self::Error> {
+        let host = validate_resource(&resource)?;
+        Ok(Self {
+            text: resource,
+            host,
+        })
+    }
+}
+
+impl TryFrom<&str> for Resource {
+    type Error = ResourceError;
+
+    fn try_from(resource: &str) -> Result<Self, Self::Error> {
+        resource.parse()
+    }
+}
+
+fn validate_resource(resource: &str) -> Result<Option<String>, ResourceError> {
+    let Some(scheme) = scheme(resource) else {
+        return Err(ResourceError::RelativeReference);
+    };
+    if !resource.is_ascii() {
+        return Err(ResourceError::InvalidCharacters);
+    }
+    if resource.bytes().any(|byte| byte <= b' ' || byte == 0x7f) {
+        return Err(ResourceError::InvalidCharacters);
+    }
+    validate_percent_escapes(resource)?;
+    if scheme.eq_ignore_ascii_case("http") || scheme.eq_ignore_ascii_case("https") {
+        let uri = Uri::try_from(resource).map_err(ResourceError::InvalidHttpUri)?;
+        return Ok(uri.host().map(str::to_string));
+    }
+    Ok(None)
+}
+
+fn validate_percent_escapes(resource: &str) -> Result<(), ResourceError> {
+    let mut bytes = resource.as_bytes().iter();
+    while let Some(byte) = bytes.next() {
+        if *byte != b'%' {
+            continue;
+        }
+        let Some(high) = bytes.next() else {
+            return Err(ResourceError::InvalidPercentEncoding);
+        };
+        let Some(low) = bytes.next() else {
+            return Err(ResourceError::InvalidPercentEncoding);
+        };
+        if !high.is_ascii_hexdigit() || !low.is_ascii_hexdigit() {
+            return Err(ResourceError::InvalidPercentEncoding);
+        }
+    }
+    Ok(())
+}
+
+fn scheme(resource: &str) -> Option<&str> {
+    let mut bytes = resource.bytes();
+    let first = bytes.next()?;
+    if !first.is_ascii_alphabetic() {
+        return None;
+    }
+
+    for (index, byte) in bytes.enumerate() {
+        match byte {
+            b':' => return Some(&resource[..index + 1]),
+            b'/' | b'?' | b'#' => return None,
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'+' | b'-' | b'.' => {}
+            _ => return None,
+        }
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Accepts `acct:` resources because they are absolute URIs with a scheme.
+    #[test]
+    fn accepts_acct_resource() {
+        let resource = "acct:carol@example.com".parse::<Resource>().unwrap();
+
+        assert_eq!(resource.as_str(), "acct:carol@example.com");
+    }
+
+    /// Accepts hierarchical HTTPS resources with an authority.
+    #[test]
+    fn accepts_https_resource() {
+        let resource = "https://example.org/users/carol"
+            .parse::<Resource>()
+            .unwrap();
+
+        assert_eq!(resource.as_str(), "https://example.org/users/carol");
+        assert_eq!(resource.host(), Some("example.org"));
+    }
+
+    /// Accepts scheme-specific opaque-looking URIs.
+    ///
+    /// RFC 3986's `URI` production requires a scheme but allows a scheme-specific path without an
+    /// authority. WebFinger commonly uses this shape for `acct:` resources.
+    #[test]
+    fn accepts_scheme_specific_resource() {
+        let resource = "urn:example:animal:ferret:nose"
+            .parse::<Resource>()
+            .unwrap();
+
+        assert_eq!(resource.as_str(), "urn:example:animal:ferret:nose");
+    }
+
+    /// Rejects relative references that `http::Uri` can otherwise parse.
+    #[test]
+    fn rejects_relative_resource_references() {
+        for resource in ["carol", "/relative", "../x", ""] {
+            let error = resource.parse::<Resource>().unwrap_err();
+
+            assert!(
+                matches!(error, ResourceError::RelativeReference),
+                "expected relative-resource error for {resource:?}, got {error:?}",
+            );
+        }
+    }
+
+    /// Rejects raw non-ASCII resource text.
+    ///
+    /// RFC 3986 URI syntax is ASCII. Non-ASCII data must be percent-encoded inside the resource URI
+    /// itself before it is put into the WebFinger query parameter.
+    #[test]
+    fn rejects_non_ascii_resource_text() {
+        let error = "acct:carolé@example.org".parse::<Resource>().unwrap_err();
+
+        assert!(
+            matches!(error, ResourceError::InvalidCharacters),
+            "expected invalid-character error, got {error:?}",
+        );
+    }
+
+    /// Rejects malformed percent escape syntax inside resource URIs.
+    ///
+    /// Percent escapes belong to the resource URI itself after the outer WebFinger query has been
+    /// decoded, so malformed escapes must be rejected at the resource boundary too.
+    #[test]
+    fn rejects_malformed_resource_percent_escape() {
+        let error = "acct:carol%GG@example.org".parse::<Resource>().unwrap_err();
+
+        assert!(
+            matches!(error, ResourceError::InvalidPercentEncoding),
+            "expected invalid-percent-encoding error, got {error:?}",
+        );
+    }
+
+    /// Validates HTTP and HTTPS resource authorities regardless of scheme case.
+    ///
+    /// URI schemes are case-insensitive, so uppercase `HTTPS` should not bypass the stricter
+    /// hierarchical URI validation used for HTTP resources.
+    #[test]
+    fn rejects_invalid_https_authority_with_uppercase_scheme() {
+        let error = "HTTPS://[::1".parse::<Resource>().unwrap_err();
+
+        assert!(
+            matches!(error, ResourceError::InvalidHttpUri(_)),
+            "expected invalid-authority error, got {error:?}",
+        );
+    }
+}

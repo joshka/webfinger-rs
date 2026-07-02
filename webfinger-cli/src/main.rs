@@ -6,9 +6,8 @@ use clap_verbosity_flag::{InfoLevel, Verbosity};
 use color_eyre::Result;
 use color_eyre::eyre::{Context, bail};
 use colored_json::ToColoredJson;
-use http::Uri;
 use tracing::{debug, warn};
-use webfinger_rs::{Rel, WebFingerRequest};
+use webfinger_rs::{Rel, Resource, WebFingerRequest};
 
 /// A simple CLI for fetching webfinger resources
 #[derive(Debug, Parser)]
@@ -60,9 +59,10 @@ async fn main() -> Result<()> {
 
 impl FetchCommand {
     async fn execute(&self) -> Result<()> {
+        let resource = self.resource()?;
         let request = WebFingerRequest {
-            host: self.host()?,
-            resource: self.resource()?,
+            host: self.host(&resource)?,
+            resource,
             rels: self.link_relations(),
         };
         debug!("fetching webfinger resource: {:?}", request);
@@ -78,16 +78,15 @@ impl FetchCommand {
         Ok(())
     }
 
-    fn host(&self) -> Result<String> {
-        // TODO use correct normalization of host names
+    fn host(&self, resource: &Resource) -> Result<String> {
         if let Some(host) = self.host.as_deref() {
             Ok(host.to_string())
         } else {
-            let resource = self.resource()?;
             if let Some(host) = resource.host() {
                 debug!("extracted host from resource URI: {}", host);
                 Ok(host.to_string())
             } else if let Some((_, host)) = self.resource.split_once('@') {
+                // TODO normalize account-address hosts before constructing the request URI.
                 debug!("extracted host from acct resource: {}", host);
                 Ok(host.to_string())
             } else {
@@ -96,7 +95,7 @@ impl FetchCommand {
         }
     }
 
-    fn resource(&self) -> Result<Uri> {
+    fn resource(&self) -> Result<Resource> {
         self.resource.parse().wrap_err("invalid resource")
     }
 
@@ -128,8 +127,9 @@ mod tests {
     #[test]
     fn host_uses_resource_uri_authority() {
         let command = command("https://example.org/users/@carol");
+        let resource = command.resource().unwrap();
 
-        let host = command.host().unwrap();
+        let host = command.host(&resource).unwrap();
 
         assert_eq!(host, "example.org");
     }
@@ -143,8 +143,9 @@ mod tests {
     #[test]
     fn host_falls_back_to_acct_authority() {
         let command = command("acct:carol@example.org");
+        let resource = command.resource().unwrap();
 
-        let host = command.host().unwrap();
+        let host = command.host(&resource).unwrap();
 
         assert_eq!(host, "example.org");
     }

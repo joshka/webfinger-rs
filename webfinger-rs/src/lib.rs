@@ -68,7 +68,8 @@
 //!
 //! A WebFinger query is an HTTPS `GET` against the well-known endpoint
 //! [`WELL_KNOWN_PATH`] with a required `resource` parameter and, optionally, one or more `rel`
-//! parameters.
+//! parameters. The `resource` parameter is the query target URI; builders and server extractors
+//! reject relative references such as `carol`, `/relative`, `../x`, and empty values.
 //!
 //! A request built by this crate today for `acct:carol@example.com` filtered to the profile-page
 //! relation looks like this:
@@ -257,7 +258,7 @@
 
 pub use crate::error::Error;
 pub use crate::types::{
-    Link, LinkBuilder, Rel, Request as WebFingerRequest, RequestBuilder,
+    Link, LinkBuilder, Rel, Request as WebFingerRequest, RequestBuilder, Resource, ResourceError,
     Response as WebFingerResponse, ResponseBuilder, Title,
 };
 

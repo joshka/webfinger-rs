@@ -35,6 +35,28 @@ Current integration targets:
 - Axum `0.8`
 - Actix Web `4`
 
+## Protocol overview
+
+A WebFinger query is an HTTPS `GET` against `/.well-known/webfinger` with a required `resource`
+parameter and, optionally, one or more `rel` parameters. The `resource` parameter is the query
+target URI; builders and server extractors reject relative references such as `carol`,
+`/relative`, `../x`, and empty values.
+
+A request built by this crate today for `acct:carol@example.com` filtered to the profile-page
+relation looks like this:
+
+```text
+GET https://example.com/.well-known/webfinger?resource=acct:carol@example.com&rel=http://webfinger.net/rel/profile-page
+```
+
+Server integrations split that contract across the normal web-framework boundary:
+
+- mount the handler as `GET` at `/.well-known/webfinger` so the router rejects other paths and
+  methods;
+- configure TLS and forwarded-proto handling at the server or reverse-proxy boundary; and
+- let the Axum or Actix Web extractor validate the request host, query parameters, percent
+  encoding, and `resource` URI.
+
 ## Install
 
 Add the crate with the feature set you need:

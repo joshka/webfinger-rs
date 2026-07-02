@@ -1,8 +1,7 @@
-use http::Uri;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, serde_as};
 
-use crate::{Error, Rel};
+use crate::{Error, Rel, Resource};
 
 /// A WebFinger request.
 ///
@@ -40,8 +39,10 @@ use crate::{Error, Rel};
 /// resources, set `host` to the domain that serves WebFinger for that account. In the common case,
 /// that is the same domain that appears after `@` in the `acct:` URI.
 ///
-/// `acct:` resources should include the full account URI, such as
-/// `acct:carol@example.com`, not just `carol@example.com` or `@carol@example.com`.
+/// `resource` must be an absolute URI, not a relative reference. `acct:` resources should include
+/// the full account URI, such as `acct:carol@example.com`, not just `carol@example.com` or
+/// `@carol@example.com`. Hierarchical URIs such as `https://example.com/users/carol` are also
+/// accepted.
 ///
 /// Repeated relation filters are encoded as repeated `rel` query parameters rather than as a
 /// comma-separated list.
@@ -89,21 +90,21 @@ use crate::{Error, Rel};
 /// }
 /// ```
 #[serde_as]
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Request {
     /// Query target.
     ///
-    /// This is the URI of the resource to query. It will be stored in the `resource` query
-    /// parameter.
+    /// This is the absolute URI of the resource to query. It will be stored in the `resource`
+    /// query parameter.
     ///
     /// For account lookups, use the full `acct:` URI, for example `acct:carol@example.com`.
+    /// Relative references such as `carol`, `/relative`, `../x`, and empty values are rejected by
+    /// builders and first-party server extractors.
     ///
     /// See: [RFC 7565 section 3](https://www.rfc-editor.org/rfc/rfc7565.html#section-3).
     ///
-    /// TODO: This could be a newtype that represents the resource and makes it easier to extract
-    /// the values / parse into the right types (e.g. `acct:` URIs).
     #[serde_as(as = "DisplayFromStr")]
-    pub resource: Uri,
+    pub resource: Resource,
 
     /// The host to query.
     ///
@@ -131,7 +132,10 @@ pub struct Request {
 
 impl Request {
     /// Creates a new WebFinger request.
-    pub fn new(resource: Uri) -> Self {
+    ///
+    /// This low-level constructor accepts an already validated [`Resource`]. Use
+    /// [`Request::builder`] or `str::parse::<Resource>()` when accepting untrusted resource text.
+    pub fn new(resource: Resource) -> Self {
         Self {
             host: String::new(),
             resource,
@@ -142,8 +146,8 @@ impl Request {
     /// Creates a new [`Builder`] for a WebFinger request.
     pub fn builder<U>(uri: U) -> Result<Builder, Error>
     where
-        Uri: TryFrom<U>,
-        <Uri as TryFrom<U>>::Error: Into<Error>,
+        Resource: TryFrom<U>,
+        <Resource as TryFrom<U>>::Error: Into<Error>,
     {
         Builder::new(uri)
     }
@@ -164,7 +168,7 @@ impl Request {
 ///     .build();
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Builder {
     request: Request,
 }
@@ -174,21 +178,23 @@ impl Builder {
     ///
     /// This will use the given URI as the resource for the query.
     ///
-    /// For account lookups, pass the complete `acct:` URI, such as `acct:carol@example.com`.
+    /// The resource must be an absolute URI with a scheme. For account lookups, pass the complete
+    /// `acct:` URI, such as `acct:carol@example.com`.
     ///
     /// See: [RFC 7565 section 3](https://www.rfc-editor.org/rfc/rfc7565.html#section-3).
     ///
     /// # Errors
     ///
-    /// This will return an error if the URI is invalid.
+    /// This will return an error if the URI is invalid or if it is a relative reference rather than
+    /// an absolute URI.
     pub fn new<U>(uri: U) -> Result<Self, Error>
     where
-        Uri: TryFrom<U>,
-        <Uri as TryFrom<U>>::Error: Into<Error>,
+        Resource: TryFrom<U>,
+        <Resource as TryFrom<U>>::Error: Into<Error>,
     {
-        TryFrom::try_from(uri)
-            .map(|uri| Self {
-                request: Request::new(uri),
+        Resource::try_from(uri)
+            .map(|resource| Self {
+                request: Request::new(resource),
             })
             .map_err(Into::into)
     }

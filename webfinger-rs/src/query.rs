@@ -5,17 +5,20 @@ use std::str::FromStr;
 use percent_encoding::percent_decode_str;
 use thiserror::Error;
 
+use crate::{Resource, ResourceError};
+
 /// The query parameters for a WebFinger request.
 ///
-/// `resource` is required exactly once by RFC 7033 sections 4.1 and 4.2, while `rel` may be
-/// repeated to filter the response to one or more relation types.
+/// `resource` is required exactly once by RFC 7033 sections 4.1 and 4.2 and must be an absolute
+/// URI rather than a relative reference. `rel` may be repeated to filter the response to one or
+/// more relation types.
 ///
 /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1> and
 /// <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.2>.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct RequestParams {
     /// The decoded WebFinger resource query target.
-    pub(crate) resource: String,
+    pub(crate) resource: Resource,
 
     /// The decoded relation filters, preserving the client's repeated-key order.
     pub(crate) rel: Vec<String>,
@@ -52,7 +55,9 @@ impl FromStr for RequestParams {
             }
         }
 
-        let resource = resource.ok_or(RequestParamsError::MissingResource)?;
+        let resource = resource
+            .ok_or(RequestParamsError::MissingResource)?
+            .parse()?;
         Ok(RequestParams { resource, rel })
     }
 }
@@ -98,7 +103,7 @@ fn validate_percent_escapes(value: &str) -> Result<(), RequestParamsError> {
 }
 
 /// Errors that can occur while parsing WebFinger query parameters.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub(crate) enum RequestParamsError {
     /// The required `resource` parameter is missing.
     #[error("missing resource parameter")]
@@ -111,6 +116,16 @@ pub(crate) enum RequestParamsError {
     /// A query parameter contains malformed percent encoding or invalid UTF-8 after decoding.
     #[error("invalid percent-encoded query parameter")]
     InvalidPercentEncoding,
+
+    /// The required `resource` parameter is not an absolute URI.
+    #[error("invalid resource: {0}")]
+    InvalidResource(ResourceError),
+}
+
+impl From<ResourceError> for RequestParamsError {
+    fn from(error: ResourceError) -> Self {
+        Self::InvalidResource(error)
+    }
 }
 
 #[cfg(test)]
@@ -126,14 +141,12 @@ mod tests {
     /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1>.
     #[test]
     fn decodes_percent_encoded_resource() {
-        let query = "resource=acct%3Abad%40example.org"
-            .parse::<RequestParams>()
-            .unwrap();
+        let query: RequestParams = "resource=acct%3Abad%40example.org".parse().unwrap();
 
         assert_eq!(
             query,
             RequestParams {
-                resource: "acct:bad@example.org".to_string(),
+                resource: "acct:bad@example.org".parse().unwrap(),
                 rel: Vec::new(),
             },
         );
@@ -148,14 +161,13 @@ mod tests {
     /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1>.
     #[test]
     fn preserves_repeated_rel_params() {
-        let query = "resource=acct%3Acarol%40example.org&rel=profile&rel=avatar"
-            .parse::<RequestParams>()
-            .unwrap();
+        const QUERY: &str = "resource=acct%3Acarol%40example.org&rel=profile&rel=avatar";
+        let query: RequestParams = QUERY.parse().unwrap();
 
         assert_eq!(
             query,
             RequestParams {
-                resource: "acct:carol@example.org".to_string(),
+                resource: "acct:carol@example.org".parse().unwrap(),
                 rel: vec!["profile".to_string(), "avatar".to_string()],
             },
         );
@@ -163,23 +175,22 @@ mod tests {
 
     /// Decodes percent-encoded relation URIs.
     ///
-    /// Relation filters are often URI strings. RFC 3986 section 2.1 percent encoding must be decoded
-    /// before handlers compare relation values, otherwise lookups see encoded text instead of the
-    /// requested relation.
+    /// Relation filters are often URI strings. RFC 3986 section 2.1 percent encoding must be
+    /// decoded before handlers compare relation values, otherwise lookups see encoded text
+    /// instead of the requested relation.
     ///
     /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1> and
     /// <https://www.rfc-editor.org/rfc/rfc3986.html#section-2.1>.
     #[test]
     fn decodes_percent_encoded_rel_params() {
         let rel = "http%3A%2F%2Fwebfinger.example%2Frel%2Fprofile-page";
-        let query = format!("resource=acct%3Acarol%40example.org&rel={rel}")
-            .parse::<RequestParams>()
-            .unwrap();
+        let query_string = format!("resource=acct%3Acarol%40example.org&rel={rel}");
+        let query: RequestParams = query_string.parse().unwrap();
 
         assert_eq!(
             query,
             RequestParams {
-                resource: "acct:carol@example.org".to_string(),
+                resource: "acct:carol@example.org".parse().unwrap(),
                 rel: vec!["http://webfinger.example/rel/profile-page".to_string()],
             },
         );
@@ -187,52 +198,56 @@ mod tests {
 
     /// Rejects percent-decoded values that are not valid UTF-8.
     ///
-    /// The parser returns owned Rust strings, so RFC 3986 percent-encoded bytes that do not decode to
-    /// UTF-8 must fail before they can become replacement characters or handler-visible data.
+    /// The parser returns owned Rust strings, so RFC 3986 percent-encoded bytes that do not decode
+    /// to UTF-8 must fail before they can become replacement characters or handler-visible
+    /// data.
     ///
     /// See <https://www.rfc-editor.org/rfc/rfc3986.html#section-2.1>.
     #[test]
     fn rejects_invalid_utf8_percent_encoded_values() {
-        let error = "resource=acct%3Acarol%40example.org&rel=%FF"
-            .parse::<RequestParams>()
-            .unwrap_err();
+        const QUERY: &str = "resource=acct%3Acarol%40example.org&rel=%FF";
+        let error = QUERY.parse::<RequestParams>().unwrap_err();
 
-        assert_eq!(error, RequestParamsError::InvalidPercentEncoding);
+        assert!(
+            matches!(error, RequestParamsError::InvalidPercentEncoding),
+            "expected invalid-percent-encoding error, got {error:?}",
+        );
     }
 
     /// Rejects malformed percent escape syntax.
     ///
-    /// Some percent decoders leave invalid escapes like `%GG` unchanged. RFC 3986 section 2.1 defines
-    /// percent encoding as `%` followed by two hexadecimal digits, so the parser rejects malformed
-    /// escapes before decoding.
+    /// Some percent decoders leave invalid escapes like `%GG` unchanged. RFC 3986 section 2.1
+    /// defines percent encoding as `%` followed by two hexadecimal digits, so the parser
+    /// rejects malformed escapes before decoding.
     ///
     /// See <https://www.rfc-editor.org/rfc/rfc3986.html#section-2.1>.
     #[test]
     fn rejects_malformed_percent_escape_syntax() {
-        let error = "resource=acct%3Acarol%40example.org&rel=%GG"
-            .parse::<RequestParams>()
-            .unwrap_err();
+        const QUERY: &str = "resource=acct%3Acarol%40example.org&rel=%GG";
+        let error = QUERY.parse::<RequestParams>().unwrap_err();
 
-        assert_eq!(error, RequestParamsError::InvalidPercentEncoding);
+        assert!(
+            matches!(error, RequestParamsError::InvalidPercentEncoding),
+            "expected invalid-percent-encoding error, got {error:?}",
+        );
     }
 
     /// Accepts `resource` in any query parameter position.
     ///
     /// RFC 7033 section 4.1 defines parameter names but not an order. This prevents order-sensitive
-    /// parsing where optional `rel` filters or extension parameters before `resource` break otherwise
-    /// valid requests.
+    /// parsing where optional `rel` filters or extension parameters before `resource` break
+    /// otherwise valid requests.
     ///
     /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1>.
     #[test]
     fn resource_parameter_order_does_not_matter() {
-        let query = "rel=profile&resource=acct%3Acarol%40example.org"
-            .parse::<RequestParams>()
-            .unwrap();
+        const QUERY: &str = "rel=profile&resource=acct%3Acarol%40example.org";
+        let query: RequestParams = QUERY.parse().unwrap();
 
         assert_eq!(
             query,
             RequestParams {
-                resource: "acct:carol@example.org".to_string(),
+                resource: "acct:carol@example.org".parse().unwrap(),
                 rel: vec!["profile".to_string()],
             },
         );
@@ -248,14 +263,13 @@ mod tests {
     #[test]
     fn encoded_delimiters_stay_inside_resource() {
         let resource = "https%3A%2F%2Fexample.org%2Fprofile%3Fa%3D1%26b%3D2";
-        let query = format!("resource={resource}")
-            .parse::<RequestParams>()
-            .unwrap();
+        let query_string = format!("resource={resource}");
+        let query: RequestParams = query_string.parse().unwrap();
 
         assert_eq!(
             query,
             RequestParams {
-                resource: "https://example.org/profile?a=1&b=2".to_string(),
+                resource: "https://example.org/profile?a=1&b=2".parse().unwrap(),
                 rel: Vec::new(),
             },
         );
@@ -270,14 +284,13 @@ mod tests {
     /// See <https://www.rfc-editor.org/rfc/rfc3986.html#section-2.1>.
     #[test]
     fn decodes_encoded_percent_once() {
-        let query = "resource=https://example.org/profile/a%2520b"
-            .parse::<RequestParams>()
-            .unwrap();
+        const QUERY: &str = "resource=https://example.org/profile/a%2520b";
+        let query: RequestParams = QUERY.parse().unwrap();
 
         assert_eq!(
             query,
             RequestParams {
-                resource: "https://example.org/profile/a%20b".to_string(),
+                resource: "https://example.org/profile/a%20b".parse().unwrap(),
                 rel: Vec::new(),
             },
         );
@@ -291,14 +304,12 @@ mod tests {
     /// See <https://www.rfc-editor.org/rfc/rfc3986.html#section-3.4>.
     #[test]
     fn plus_is_not_decoded_as_space() {
-        let query = "resource=acct%3Acarol+tag%40example.org"
-            .parse::<RequestParams>()
-            .unwrap();
+        let query: RequestParams = "resource=acct%3Acarol+tag%40example.org".parse().unwrap();
 
         assert_eq!(
             query,
             RequestParams {
-                resource: "acct:carol+tag@example.org".to_string(),
+                resource: "acct:carol+tag@example.org".parse().unwrap(),
                 rel: Vec::new(),
             },
         );
@@ -312,23 +323,58 @@ mod tests {
     /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.2>.
     #[test]
     fn rejects_multiple_resource_params() {
-        let error = "resource=acct%3Acarol%40example.org&resource=acct%3Aalice%40example.org"
-            .parse::<RequestParams>()
-            .unwrap_err();
+        const QUERY: &str =
+            "resource=acct%3Acarol%40example.org&resource=acct%3Aalice%40example.org";
+        let error = QUERY.parse::<RequestParams>().unwrap_err();
 
-        assert_eq!(error, RequestParamsError::MultipleResources);
+        assert!(
+            matches!(error, RequestParamsError::MultipleResources),
+            "expected multiple-resources error, got {error:?}",
+        );
     }
 
     /// Rejects requests that omit the required `resource` parameter.
     ///
     /// RFC 7033 section 4.2 treats absent `resource` parameters as bad requests. This keeps adapter
-    /// code from inventing a default target or depending on framework-specific deserialization errors.
+    /// code from inventing a default target or depending on framework-specific deserialization
+    /// errors.
     ///
     /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.2>.
     #[test]
     fn rejects_missing_resource_param() {
         let error = "rel=profile".parse::<RequestParams>().unwrap_err();
 
-        assert_eq!(error, RequestParamsError::MissingResource);
+        assert!(
+            matches!(error, RequestParamsError::MissingResource),
+            "expected missing-resource error, got {error:?}",
+        );
+    }
+
+    /// Rejects relative references in the `resource` parameter.
+    ///
+    /// RFC 7033 section 4.1 says the WebFinger query target is a URI. RFC 3986 distinguishes a URI
+    /// from a relative reference by the required scheme, so values like `carol`, `/relative`,
+    /// `../x`, and the empty string are malformed WebFinger resources.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1> and
+    /// <https://www.rfc-editor.org/rfc/rfc3986.html#section-4.1>.
+    #[test]
+    fn rejects_relative_resource_references() {
+        for query in [
+            "resource=carol",
+            "resource=/relative",
+            "resource=../x",
+            "resource=",
+        ] {
+            let error = query.parse::<RequestParams>().unwrap_err();
+
+            assert!(
+                matches!(
+                    error,
+                    RequestParamsError::InvalidResource(ResourceError::RelativeReference)
+                ),
+                "expected relative-resource error, got {error:?}",
+            );
+        }
     }
 }

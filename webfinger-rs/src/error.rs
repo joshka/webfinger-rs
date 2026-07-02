@@ -1,3 +1,5 @@
+use crate::ResourceError;
+
 /// Error type for this crate.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -15,4 +17,8 @@ pub enum Error {
     // Json(#[from] serde_json::Error),
     #[error("invalid uri: {0}")]
     InvalidUri(#[from] http::uri::InvalidUri),
+
+    /// A WebFinger resource is malformed.
+    #[error(transparent)]
+    InvalidResource(#[from] ResourceError),
 }

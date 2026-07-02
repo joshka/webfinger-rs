@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::fmt::{self, Debug};
+use std::fmt;
 
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -53,7 +53,7 @@ use crate::Rel;
 /// }
 /// ```
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Response {
     /// The subject of the response.
     ///
@@ -122,6 +122,7 @@ impl fmt::Display for Response {
 /// A builder for a WebFinger response.
 ///
 /// This is used to construct a [`Response`] with the desired fields.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Builder {
     response: Response,
 }
@@ -185,26 +186,11 @@ impl Builder {
     }
 }
 
-/// Custom debug implementation to avoid printing `None` fields
-impl Debug for Response {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut debug = f.debug_struct("Response");
-        let mut debug = debug.field("subject", &self.subject);
-        if let Some(aliases) = &self.aliases {
-            debug = debug.field("aliases", &aliases);
-        }
-        if let Some(properties) = &self.properties {
-            debug = debug.field("properties", &properties);
-        }
-        debug.field("links", &self.links).finish()
-    }
-}
-
 /// A link in the WebFinger response.
 ///
 /// Defined in [RFC 7033 Section 4.4](https://www.rfc-editor.org/rfc/rfc7033.html#section-4.4.4)
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Link {
     /// The relation type of the link.
     ///
@@ -258,6 +244,7 @@ impl Link {
 /// A builder for a WebFinger link.
 ///
 /// This is used to construct a [`Link`] with the desired fields.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LinkBuilder {
     link: Link,
 }
@@ -343,27 +330,6 @@ impl From<LinkBuilder> for Link {
     }
 }
 
-/// Custom debug implementation to avoid printing `None` fields
-impl Debug for Link {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut debug = f.debug_struct("Link");
-        let mut debug = debug.field("rel", &self.rel);
-        if let Some(r#type) = &self.r#type {
-            debug = debug.field("type", &r#type);
-        }
-        if let Some(href) = &self.href {
-            debug = debug.field("href", &href);
-        }
-        if let Some(titles) = &self.titles {
-            debug = debug.field("titles", &titles);
-        }
-        if let Some(properties) = &self.properties {
-            debug = debug.field("properties", &properties);
-        }
-        debug.finish()
-    }
-}
-
 /// A title in the WebFinger response.
 ///
 /// Defined in [RFC 7033 Section 4.4.4.4](https://www.rfc-editor.org/rfc/rfc7033.html#section-4.4.4.4)
@@ -375,7 +341,7 @@ impl Debug for Link {
 ///
 /// let title = Title::new("en-us", "Carol's Profile");
 /// ```
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Title {
     /// The language of the title.
     ///
