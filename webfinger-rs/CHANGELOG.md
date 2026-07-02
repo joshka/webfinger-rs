@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.29](https://github.com/joshka/webfinger-rs/compare/webfinger-rs-v0.0.28...webfinger-rs-v0.0.29) - 2026-07-02
+
+### Fixed
+
+- encode WebFinger query values ([#177](https://github.com/joshka/webfinger-rs/pull/177))
+- reject invalid WebFinger resource URIs
+- tighten WebFinger URI validation
+- align JRD response types ([#174](https://github.com/joshka/webfinger-rs/pull/174))
+- validate WebFinger relation types ([#172](https://github.com/joshka/webfinger-rs/pull/172))
+- validate WebFinger resources ([#171](https://github.com/joshka/webfinger-rs/pull/171))
+- validate WebFinger server request routing ([#170](https://github.com/joshka/webfinger-rs/pull/170))
+- set Actix JRD media type ([#169](https://github.com/joshka/webfinger-rs/pull/169))
+- add WebFinger CORS header ([#168](https://github.com/joshka/webfinger-rs/pull/168))
+- enforce HTTPS redirects
+
+### Other
+
+- align runnable examples ([#178](https://github.com/joshka/webfinger-rs/pull/178))
+
 ## [0.0.28](https://github.com/joshka/webfinger-rs/compare/webfinger-rs-v0.0.27...webfinger-rs-v0.0.28) - 2026-07-01
 
 ### Other

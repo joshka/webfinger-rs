@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.29](https://github.com/joshka/webfinger-rs/compare/webfinger-cli-v0.0.28...webfinger-cli-v0.0.29) - 2026-07-02
+
+### Fixed
+
+- tighten WebFinger URI validation
+- validate WebFinger relation types ([#172](https://github.com/joshka/webfinger-rs/pull/172))
+- validate WebFinger resources ([#171](https://github.com/joshka/webfinger-rs/pull/171))
+
+### Other
+
+- align runnable examples ([#178](https://github.com/joshka/webfinger-rs/pull/178))
+
 ## [0.0.28](https://github.com/joshka/webfinger-rs/compare/webfinger-cli-v0.0.27...webfinger-cli-v0.0.28) - 2026-07-01
 
 ### Other
