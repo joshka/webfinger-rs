@@ -1,9 +1,10 @@
-//! Actix Web integration for WebFinger request extraction and JSON responses.
+//! Actix Web integration for WebFinger request extraction and JRD responses.
 //!
 //! Enable the `actix` feature to:
 //!
 //! - extract [`WebFingerRequest`] from requests routed to [`crate::WELL_KNOWN_PATH`]; and
-//! - return [`WebFingerResponse`] directly from Actix handlers with the WebFinger CORS header.
+//! - return [`WebFingerResponse`] directly from Actix handlers as `application/jrd+json` with the
+//!   WebFinger CORS header.
 //!
 //! The extractor reads the standard WebFinger query shape from [RFC 7033 section 4.1]:
 //!
@@ -40,7 +41,7 @@ use std::future::{Ready, ready};
 
 use actix_web::dev::Payload;
 use actix_web::error::ErrorBadRequest;
-use actix_web::http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue};
+use actix_web::http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, CONTENT_TYPE, HeaderValue};
 use actix_web::web::Json;
 use actix_web::{Error as ActixError, FromRequest, HttpRequest, HttpResponse, Responder};
 use tracing::trace;
@@ -50,14 +51,17 @@ use crate::query::{RequestParams, RequestParamsError};
 use crate::{Rel, WebFingerRequest, WebFingerResponse};
 
 const CORS_ALLOW_ORIGIN_HEADER: HeaderValue = HeaderValue::from_static(CORS_ALLOW_ORIGIN);
+const JRD_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/jrd+json");
 
 impl Responder for WebFingerResponse {
     /// Converts a [`WebFingerResponse`] into an Actix response.
     ///
-    /// This delegates to [`actix_web::web::Json`], so the body is serialized as JSON and the
-    /// response `Content-Type` follows Actix's JSON responder behavior, which is currently
-    /// `application/json`. It also sets `Access-Control-Allow-Origin: *` as recommended by RFC
-    /// 7033 section 5.
+    /// This serializes the body as JSON and sets the `Content-Type` header to
+    /// `application/jrd+json`, which is the JRD media type used by WebFinger.
+    /// It also sets `Access-Control-Allow-Origin: *` as recommended by RFC 7033 section 5.
+    ///
+    /// Handlers can therefore return [`WebFingerResponse`] directly without manually wrapping it in
+    /// [`actix_web::web::Json`] or setting the response header themselves.
     ///
     /// See also the [`crate::actix`] module docs and the [Actix example].
     ///
@@ -93,6 +97,9 @@ impl Responder for WebFingerResponse {
         response
             .headers_mut()
             .insert(ACCESS_CONTROL_ALLOW_ORIGIN, CORS_ALLOW_ORIGIN_HEADER);
+        response
+            .headers_mut()
+            .insert(CONTENT_TYPE, JRD_CONTENT_TYPE);
         response
     }
 }
@@ -231,6 +238,28 @@ mod tests {
         assert_eq!(
             response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN),
             Some(&CORS_ALLOW_ORIGIN_HEADER),
+        );
+        Ok(())
+    }
+
+    /// Returns WebFinger responses with the registered JRD media type.
+    ///
+    /// RFC 7033 section 4.2 defines `application/jrd+json` as the media type for JSON Resource
+    /// Descriptor responses.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.2>.
+    #[actix_web::test]
+    async fn webfinger_response_uses_jrd_content_type() -> Result {
+        let app = App::new().route(WELL_KNOWN_PATH, web::get().to(webfinger_response));
+        let app = test::init_service(app).await;
+        let request = test::TestRequest::get().uri(WELL_KNOWN_PATH).to_request();
+
+        let response = test::call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::OK, "{response:?}");
+        assert_eq!(
+            response.headers().get(CONTENT_TYPE),
+            Some(&JRD_CONTENT_TYPE),
         );
         Ok(())
     }
