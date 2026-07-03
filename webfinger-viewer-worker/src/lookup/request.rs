@@ -66,8 +66,10 @@ impl LookupRequest {
     /// Builds a lookup request from validated viewer input.
     ///
     /// Full WebFinger URLs preserve their original endpoint unless the caller supplies new `rel`
-    /// filters. Resource identifiers derive their endpoint from the resource host and always use
-    /// HTTPS, matching RFC 7033 discovery expectations for normal viewer input.
+    /// filters. Resource identifiers normally derive an HTTPS endpoint from the resource host,
+    /// matching RFC 7033 discovery expectations. Local Wrangler development is the exception:
+    /// loopback full URLs are normalized to HTTP, and loopback resource identifiers derive
+    /// `http://<host>:8787` so they can reach a companion local responder Worker.
     pub fn new(
         resource: String,
         rels: Vec<String>,
@@ -77,10 +79,10 @@ impl LookupRequest {
         validate_rels(&rels)?;
 
         let target_url = if points_at_webfinger_endpoint(&resource) {
-            webfinger_url(&resource, &rels)?
+            webfinger_url(&resource, &rels, policy)?
         } else {
             let _validated = resource.parse::<Resource>()?;
-            resource_url(&resource, &rels)?
+            resource_url(&resource, &rels, policy)?
         };
         validate_target_url(&target_url)?;
         policy.validate_target(&target_url)?;
@@ -125,7 +127,7 @@ fn points_at_webfinger_endpoint(input: &str) -> bool {
 /// A full URL is useful when debugging an exact endpoint or reproducing another client's request.
 /// If the viewer supplies `rel` filters, they replace the URL's existing `rel` parameters so the UI
 /// has one obvious source of truth for active filters.
-fn webfinger_url(input: &str, rels: &[String]) -> Result<Url, LookupError> {
+fn webfinger_url(input: &str, rels: &[String], policy: &LookupPolicy) -> Result<Url, LookupError> {
     let mut url = Url::parse(input)?;
     if url.path() != WELL_KNOWN_PATH {
         return Err(LookupError::NotWebFingerUrl);
@@ -133,6 +135,7 @@ fn webfinger_url(input: &str, rels: &[String]) -> Result<Url, LookupError> {
     if !matches!(url.scheme(), "https" | "http") {
         return Err(LookupError::UnsupportedScheme(url.scheme().to_string()));
     }
+    normalize_local_loopback_scheme(&mut url, policy)?;
 
     let resource = url
         .query_pairs()
@@ -155,12 +158,20 @@ fn webfinger_url(input: &str, rels: &[String]) -> Result<Url, LookupError> {
 
 /// Builds the standard WebFinger endpoint URL for a resource identifier.
 ///
-/// The viewer always derives HTTPS endpoints for plain resource input. Use the full WebFinger URL
-/// input path when debugging a non-standard scheme, host, or query string exactly as supplied by
-/// another client.
-fn resource_url(resource: &str, rels: &[String]) -> Result<Url, LookupError> {
+/// The viewer derives HTTPS endpoints for normal resource input. In local development, loopback
+/// hosts use the repo's default local responder origin so `acct:alice@localhost` reaches
+/// `http://localhost:8787/.well-known/webfinger`. Use the full WebFinger URL input path when
+/// debugging a different local port or an exact query string from another client.
+fn resource_url(
+    resource: &str,
+    rels: &[String],
+    policy: &LookupPolicy,
+) -> Result<Url, LookupError> {
     let host = resource_host(resource)?;
-    let mut url = Url::parse(&format!("https://{host}{WELL_KNOWN_PATH}"))?;
+    let origin = policy
+        .local_responder_origin_for_host(&host)
+        .unwrap_or_else(|| format!("https://{host}"));
+    let mut url = Url::parse(&format!("{origin}{WELL_KNOWN_PATH}"))?;
     {
         let mut query = url.query_pairs_mut();
         query.append_pair("resource", resource);
@@ -169,6 +180,29 @@ fn resource_url(resource: &str, rels: &[String]) -> Result<Url, LookupError> {
         }
     }
     Ok(url)
+}
+
+/// Normalizes loopback HTTPS URLs to HTTP during local Wrangler development.
+///
+/// Wrangler dev servers listen on plain HTTP. This viewer accepts `https://localhost:8787/...`
+/// because it is the standard WebFinger shape many people type first, but local mode rewrites that
+/// target to `http://localhost:8787/...` before the Worker fetches it. Production-like deployments
+/// never rewrite schemes.
+fn normalize_local_loopback_scheme(
+    url: &mut Url,
+    policy: &LookupPolicy,
+) -> Result<(), LookupError> {
+    if !policy.is_local_development() || url.scheme() != "https" {
+        return Ok(());
+    }
+    let Some(host) = url.host_str() else {
+        return Ok(());
+    };
+    if LookupPolicy::host_is_loopback(host) {
+        url.set_scheme("http")
+            .map_err(|_| LookupError::UnsupportedScheme(url.scheme().to_string()))?;
+    }
+    Ok(())
 }
 
 /// Validates the user-visible resource before target URL construction.
@@ -247,6 +281,12 @@ mod tests {
         )
     }
 
+    fn local_policy() -> LookupPolicy {
+        LookupPolicy::from_viewer_url(
+            &Url::parse("http://localhost:8790/webfinger/api/lookup").unwrap(),
+        )
+    }
+
     #[test]
     fn builds_acct_target_url() {
         let request = LookupRequest::new(
@@ -290,6 +330,52 @@ mod tests {
         assert_eq!(
             request.target_url().as_str(),
             "https://example.com/.well-known/webfinger?resource=acct%3Aalice%40example.com",
+        );
+    }
+
+    #[test]
+    fn local_viewer_derives_loopback_acct_resource_to_default_responder_port() {
+        let request = LookupRequest::new(
+            "acct:alice@localhost".to_string(),
+            Vec::new(),
+            &local_policy(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            request.target_url().as_str(),
+            "http://localhost:8787/.well-known/webfinger?resource=acct%3Aalice%40localhost",
+        );
+    }
+
+    #[test]
+    fn local_viewer_derives_ipv4_loopback_acct_resource_to_default_responder_port() {
+        let request = LookupRequest::new(
+            "acct:alice@127.0.0.1".to_string(),
+            Vec::new(),
+            &local_policy(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            request.target_url().as_str(),
+            "http://127.0.0.1:8787/.well-known/webfinger?resource=acct%3Aalice%40127.0.0.1",
+        );
+    }
+
+    #[test]
+    fn local_viewer_normalizes_https_loopback_webfinger_url_to_http() {
+        let request = LookupRequest::new(
+            "https://localhost:8787/.well-known/webfinger?resource=acct%3Aalice%40localhost"
+                .to_string(),
+            Vec::new(),
+            &local_policy(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            request.target_url().as_str(),
+            "http://localhost:8787/.well-known/webfinger?resource=acct%3Aalice%40localhost",
         );
     }
 
