@@ -1,0 +1,88 @@
+<!doctype html>
+{# Full page shell served for /webfinger and browser refreshes below that path.
+   The CSS, htmx source, and app script are embedded by view.rs so the Worker does not need
+   separate asset routes when mounted below a path prefix. #}
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WebFinger Viewer</title>
+  <script>{{ htmx_js|safe }}</script>
+  <style>{{ app_css|safe }}</style>
+</head>
+<body>
+  <main>
+    <header class="app-header">
+      <div class="brand">
+        <h1>WebFinger Viewer</h1>
+      </div>
+      <div class="header-actions">
+        <label class="theme-control">
+          <span>Theme</span>
+          <select id="theme" class="theme-select" aria-label="Theme">
+            <option value="auto">Auto</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
+        <span id="state" class="state-text">Idle</span>
+      </div>
+    </header>
+
+    <div class="shell">
+      <div class="query-panel">
+        <form
+          id="lookup-form"
+          hx-get="api/lookup"
+          hx-target="#results"
+          hx-swap="outerHTML"
+        >
+          {# app.js rewrites hx-get at runtime so the request lands below the current path prefix. #}
+          <label>
+            <span>Resource or WebFinger URL</span>
+            <input
+              id="resource"
+              name="resource"
+              required
+              placeholder="acct:alice@example.com"
+              spellcheck="false"
+              autocomplete="off"
+            >
+          </label>
+          <div class="relation-control">
+            <label>
+              <span>Relation filters</span>
+              <input
+                id="rels"
+                name="rel"
+                placeholder="Optional: self, profile-page, issuer, or a rel URI"
+                spellcheck="false"
+                autocomplete="off"
+              >
+            </label>
+            <div class="rel-presets" aria-label="Relation presets">
+              <label class="rel-preset">
+                <input type="checkbox" name="rel" value="self">
+                self
+              </label>
+              <label class="rel-preset">
+                <input type="checkbox" name="rel" value="http://webfinger.net/rel/profile-page">
+                profile
+              </label>
+              <label class="rel-preset">
+                <input type="checkbox" name="rel" value="http://openid.net/specs/connect/1.0/issuer">
+                issuer
+              </label>
+            </div>
+          </div>
+          <button id="submit" type="submit">Fetch</button>
+        </form>
+      </div>
+
+      <div id="results" class="results" hidden></div>
+    </div>
+  </main>
+
+  <script>{{ app_js|safe }}</script>
+</body>
+</html>

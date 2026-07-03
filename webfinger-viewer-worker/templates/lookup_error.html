@@ -1,0 +1,27 @@
+{# htmx error fragment for viewer-level failures such as malformed input or Worker fetch errors.
+   The endpoint is intentionally htmx-only; this fragment uses 200 so htmx swaps it. #}
+<span id="state" class="state-text {{ state.class_name }}" hx-swap-oob="true">{{ state.message }}</span>
+<div id="results" class="results">
+  <div class="status-strip" aria-live="polite">
+    <div class="metric">
+      <span class="metric-title">Status</span>
+      <span class="metric-value pill bad copyable">
+        Error<button class="copy-value" type="button" data-copy="Error" aria-label="Copy value">Copy</button>
+      </span>
+    </div>
+    <div class="metric">
+      <span class="metric-title">Content type</span>
+      <span class="metric-value muted">-</span>
+    </div>
+    <div class="metric">
+      <span class="metric-title">Endpoint</span>
+      <span class="metric-value muted">-</span>
+    </div>
+  </div>
+  <div class="workspace">
+    <section>
+      <div class="toolbar"><h2>Resource Details</h2></div>
+      <div class="list"><p class="empty">Lookup failed.</p></div>
+    </section>
+  </div>
+</div>

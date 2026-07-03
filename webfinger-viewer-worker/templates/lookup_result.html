@@ -1,0 +1,151 @@
+{# htmx swaps this fragment into #results after a lookup. The Worker returns 200 for this fragment
+   even when the target WebFinger status is non-2xx; the target status is rendered below. #}
+<span id="state" class="state-text {{ state.class_name }}" hx-swap-oob="true">{{ state.message }}</span>
+<div id="results" class="results">
+  <div class="status-strip" aria-live="polite">
+    <div class="metric">
+      <span class="metric-title">Status</span>
+      <span class="metric-value pill {{ meta.status_class }} copyable">
+        {{ meta.status }}<button class="copy-value" type="button" data-copy="{{ meta.status }}" aria-label="Copy value">Copy</button>
+      </span>
+    </div>
+    <div class="metric">
+      <span class="metric-title">Content type</span>
+      <span class="metric-value metric-code copyable">
+        {{ meta.content_type }}<button class="copy-value" type="button" data-copy="{{ meta.content_type }}" aria-label="Copy value">Copy</button>
+      </span>
+    </div>
+    <div class="metric">
+      <span class="metric-title">Endpoint</span>
+      {% if meta.has_redirect_location %}
+        <div class="endpoint-flow">
+          <span class="redirect-note">Redirect returned</span>
+          <div class="endpoint-step">
+            <span class="endpoint-label">Requested</span>
+            <span class="metric-value metric-code copyable">
+              {{ meta.request_url }}<button class="copy-value" type="button" data-copy="{{ meta.request_url }}" aria-label="Copy value">Copy</button>
+            </span>
+          </div>
+          <div class="endpoint-step">
+            <span class="endpoint-label">Location</span>
+            <span class="metric-value metric-code copyable">
+              {{ meta.redirect_location }}<button class="copy-value" type="button" data-copy="{{ meta.redirect_location }}" aria-label="Copy value">Copy</button>
+            </span>
+          </div>
+        </div>
+      {% else %}
+        <span class="metric-value metric-code copyable">
+          {{ meta.request_url }}<button class="copy-value" type="button" data-copy="{{ meta.request_url }}" aria-label="Copy value">Copy</button>
+        </span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="workspace">
+    <section>
+      <div class="toolbar"><h2>Resource Details</h2></div>
+      <div id="summary" class="list">
+        {# Summary rows are pre-shaped in view.rs so this template can stay mostly declarative. #}
+        {% if summary.has_empty_message %}
+          <p class="empty">{{ summary.empty_message }}</p>
+        {% else %}
+          {% if summary.has_rows %}
+            <div class="item">
+              <table class="resource-table">
+                <thead>
+                  <tr><th class="field-column">field</th><th>value</th></tr>
+                </thead>
+                <tbody>
+                  {% for row in summary.rows %}
+                    <tr>
+                      <th>{{ row.key }}</th>
+                      <td>
+                        <span class="field-value copyable">
+                          {{ row.value }}<button class="copy-value" type="button" data-copy="{{ row.value }}" aria-label="Copy value">Copy</button>
+                        </span>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endif %}
+
+          {% if summary.has_links %}
+            <div class="item">
+              <h3>Links</h3>
+              <table class="links-table">
+                <thead>
+                  <tr>
+                    <th class="rel-column">rel</th>
+                    <th class="target-column">target</th>
+                    <th class="type-column">type</th>
+                    {% if summary.has_extra_fields %}<th>extra</th>{% endif %}
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for link in summary.links %}
+                    <tr>
+                      <td>
+                        <span class="field-value copyable">
+                          {{ link.rel }}<button class="copy-value" type="button" data-copy="{{ link.rel }}" aria-label="Copy value">Copy</button>
+                        </span>
+                      </td>
+                      <td>
+                        {% if link.has_target %}
+                          <span class="target-kind">{{ link.target_label }}</span>
+                          <span class="field-value copyable">
+                            {% if link.has_target_href %}
+                              {# Only concrete HTTP(S) href values are anchors; URI templates stay text. #}
+                              <a href="{{ link.target_href }}" target="_blank" rel="noopener noreferrer">{{ link.target_value }}</a>
+                            {% else %}
+                              {{ link.target_value }}
+                            {% endif %}
+                            <button class="copy-value" type="button" data-copy="{{ link.target_value }}" aria-label="Copy value">Copy</button>
+                          </span>
+                        {% else %}
+                          <span class="muted">No target</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        {% if link.has_type %}
+                          <span class="field-value copyable">
+                            {{ link.type_value }}<button class="copy-value" type="button" data-copy="{{ link.type_value }}" aria-label="Copy value">Copy</button>
+                          </span>
+                        {% endif %}
+                      </td>
+                      {% if summary.has_extra_fields %}
+                        <td>
+                          {% if link.has_extra %}
+                            <span class="field-value copyable">
+                              {{ link.extra }}<button class="copy-value" type="button" data-copy="{{ link.extra }}" aria-label="Copy value">Copy</button>
+                            </span>
+                          {% endif %}
+                        </td>
+                      {% endif %}
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endif %}
+        {% endif %}
+      </div>
+    </section>
+
+    <div class="curl-row">
+      <span class="curl-label">curl</span>
+      <code id="curl">{{ curl }}</code>
+      <button class="secondary" type="button" data-copy-from="curl">Copy</button>
+    </div>
+
+    <details class="raw-details">
+      <summary>Raw JSON</summary>
+      <div class="toolbar">
+        <span></span>
+        <button class="secondary" type="button" data-copy-from="raw">Copy JSON</button>
+      </div>
+      <pre id="raw">{{ raw }}</pre>
+    </details>
+  </div>
+</div>

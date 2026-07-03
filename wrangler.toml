@@ -1,0 +1,9 @@
+name = "webfinger-viewer-worker"
+main = "webfinger-viewer-worker/build/worker/shim.mjs"
+compatibility_date = "2026-07-02"
+
+[build]
+command = "cd webfinger-viewer-worker && cargo install -q worker-build --version 0.8.5 && worker-build --release"
+
+[observability]
+enabled = true
