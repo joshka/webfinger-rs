@@ -13,9 +13,13 @@ public deployments constrained to the hostname that served the viewer.
 Public deployments are same-origin by default: a viewer served from `https://example.com/webfinger`
 can inspect `https://example.com/.well-known/webfinger`, but it rejects lookups for unrelated
 hosts. Local Wrangler sessions are the exception. When the viewer itself is served from
-`localhost`, `127.0.0.1`, or `::1`, full loopback WebFinger URLs are allowed so a local viewer on
-port `8788` can inspect another local Worker on a port such as `8787`. In a deployed Cloudflare
-Worker, `localhost` refers to the Worker runtime environment, not the developer machine.
+`localhost`, `127.0.0.1`, or `::1`, off-origin lookups are allowed so a local viewer can inspect
+public resources such as `acct:joshka@hachyderm.io` and another local Worker on a port such as
+`8787`. Plain loopback resources such as `acct:alice@localhost` derive
+`http://localhost:8787/.well-known/webfinger`, and loopback full URLs entered as
+`https://localhost:8787/...` are normalized to `http://localhost:8787/...` because Wrangler dev
+serves plain HTTP. In a deployed Cloudflare Worker, `localhost` refers to the Worker runtime
+environment, not the developer machine.
 
 ## Features
 
@@ -23,6 +27,10 @@ Worker, `localhost` refers to the Worker runtime environment, not the developer 
   `example.com`.
 - Accepts full WebFinger URLs such as
   `https://example.com/.well-known/webfinger?resource=acct:alice@example.com`.
+- Accepts arbitrary resource hosts during local Wrangler development, including
+  `acct:joshka@hachyderm.io`.
+- Maps local resource identifiers such as `acct:alice@localhost` and `acct:alice@127.0.0.1` to the
+  default local responder port `8787`.
 - Accepts full loopback WebFinger URLs during local Wrangler development, such as
   `http://127.0.0.1:8787/.well-known/webfinger?resource=acct%3Aalice%40localhost`.
 - Adds optional repeated `rel` filters to the target request.
@@ -81,12 +89,31 @@ npm run dev
 Then open the local Wrangler URL and query a resource such as:
 
 ```text
+acct:joshka@hachyderm.io
+```
+
+To inspect a local WebFinger responder running on another Wrangler port, query the full target URL:
+
+```text
 http://127.0.0.1:8787/.well-known/webfinger?resource=acct%3Aalice%40localhost
 ```
 
-That full URL shape lets a viewer on one local Wrangler port inspect a WebFinger responder running
-on another local Wrangler port. Plain resource inputs are same-origin, so deployed pages should use
-resources whose host matches the page host.
+For the common local responder port, plain loopback resources also work:
+
+```text
+acct:alice@localhost
+acct:alice@127.0.0.1
+```
+
+If you type the standard HTTPS form for a loopback Wrangler target, local mode normalizes it to
+HTTP before fetching because Wrangler dev serves plain HTTP:
+
+```text
+https://localhost:8787/.well-known/webfinger?resource=acct%3Aalice%40localhost
+```
+
+Production deployments should use resources whose host matches the page host. Local Wrangler
+sessions are intentionally more permissive because they are a developer debugging surface.
 
 ## Implementation Map
 
@@ -114,9 +141,9 @@ authentication; direct clients can spoof htmx and Fetch Metadata headers. They k
 contract narrow and avoid CORS-enabled use of the Worker as a general server-side lookup endpoint.
 
 Lookup input is bounded before the Worker fetches a target: resource strings, relation filter
-count, relation filter length, final target URL length, same-origin target policy, and captured
-response body size all have explicit limits. Response headers also set a restrictive baseline for
-browser use, including
+count, relation filter length, final target URL length, target policy, and captured response body
+size all have explicit limits. Response headers also set a restrictive baseline for browser use,
+including
 `Content-Security-Policy`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`.
 The CSP allows inline script and style because the Worker embeds htmx, CSS, and local JavaScript in
 one path-mounted page response; it still blocks remote scripts, framing, base URI changes, and
