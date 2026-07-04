@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.33](https://github.com/joshka/webfinger-rs/compare/webfinger-rs-v0.0.32...webfinger-rs-v0.0.33) - 2026-07-04
+
+### Other
+
+- Add Axum viewer runtime ([#196](https://github.com/joshka/webfinger-rs/pull/196))
+- Add Cloudflare WebFinger worker ([#195](https://github.com/joshka/webfinger-rs/pull/195))
+- clarify Resource host modeling ([#194](https://github.com/joshka/webfinger-rs/pull/194))
+- improve code coverage ([#192](https://github.com/joshka/webfinger-rs/pull/192))
+
 ## [0.0.32](https://github.com/joshka/webfinger-rs/compare/webfinger-rs-v0.0.31...webfinger-rs-v0.0.32) - 2026-07-04
 
 ### Other

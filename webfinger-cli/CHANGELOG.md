@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.33](https://github.com/joshka/webfinger-rs/compare/webfinger-cli-v0.0.32...webfinger-cli-v0.0.33) - 2026-07-04
+
+### Other
+
+- improve code coverage ([#192](https://github.com/joshka/webfinger-rs/pull/192))
+
 ## [0.0.32](https://github.com/joshka/webfinger-rs/compare/webfinger-cli-v0.0.31...webfinger-cli-v0.0.32) - 2026-07-04
 
 ### Other
