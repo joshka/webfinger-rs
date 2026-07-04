@@ -78,6 +78,14 @@ The deploy button is a convenience for Cloudflare's Git-backed flow. It is most 
 current branch is pushed to GitHub; the person deploying still needs to choose the account and add
 any desired route such as `example.com/webfinger*` in Cloudflare.
 
+Cloudflare's Git deploy environment may provide Node and npm without Rust. The checked-in
+`wrangler.toml` build hook runs `scripts/build-webfinger-viewer-worker.sh`, which installs a
+minimal Rust toolchain only when `cargo` is missing, adds the Wasm target, and then runs
+`worker-build`. Local developers with Rust already installed use their existing toolchain.
+The repository intentionally does not use a root `rust-toolchain.toml`: the library docs workflow
+uses nightly for docs.rs-only Rustdoc features, while the Worker deploy hook can bootstrap stable
+Rust by itself.
+
 ## Local Development
 
 Run Wrangler locally:
