@@ -92,6 +92,17 @@ The repository intentionally does not use a root `rust-toolchain.toml`: the libr
 uses nightly for docs.rs-only Rustdoc features, while the Worker deploy hook can bootstrap stable
 Rust by itself.
 
+## Observability
+
+`wrangler.toml` enables Cloudflare Worker observability. The Worker installs a console-backed
+`tracing` subscriber in wasm builds, so request decisions and lookup results appear in Wrangler tail
+and Cloudflare dashboard logs. Useful log events include:
+
+- `webfinger viewer request` with `method`, `path`, and a stable `outcome` value.
+- `webfinger lookup result` with target status, target URL, resource, content type, and truncation
+  state.
+- lookup input and Worker-fetch errors at error level.
+
 ## Local Development
 
 Run Wrangler locally:

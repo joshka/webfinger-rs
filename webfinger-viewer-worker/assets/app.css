@@ -289,6 +289,18 @@ button:disabled {
   color: var(--bad);
 }
 
+.loading-state {
+  display: none;
+}
+
+.loading-state.htmx-request {
+  display: inline;
+}
+
+.loading-state.htmx-request + #state {
+  display: none;
+}
+
 .shell {
   display: grid;
   gap: 12px;

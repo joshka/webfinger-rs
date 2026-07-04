@@ -25,6 +25,7 @@
             <option value="dark">Dark</option>
           </select>
         </label>
+        <span id="state-loading" class="state-text warn loading-state">Fetching</span>
         <span id="state" class="state-text">Idle</span>
       </div>
     </header>
@@ -34,6 +35,7 @@
         <form
           id="lookup-form"
           hx-get="api/lookup"
+          hx-indicator="#state-loading"
           hx-target="#results"
           hx-swap="outerHTML"
         >

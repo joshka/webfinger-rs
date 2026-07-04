@@ -20,8 +20,12 @@
   </div>
   <div class="workspace">
     <section>
-      <div class="toolbar"><h2>Resource Details</h2></div>
-      <div class="list"><p class="empty">Lookup failed.</p></div>
+      <div class="toolbar"><h2>Lookup Error</h2></div>
+      <div class="list">
+        <p class="empty error-message copyable">
+          {{ message }}<button class="copy-value" type="button" data-copy="{{ message }}" aria-label="Copy value">Copy</button>
+        </p>
+      </div>
     </section>
   </div>
 </div>

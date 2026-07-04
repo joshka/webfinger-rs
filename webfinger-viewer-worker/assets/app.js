@@ -1,13 +1,12 @@
 // Small browser-only behavior for the viewer shell.
 //
 // htmx owns lookup submission and result swapping. Keep this file limited to behavior that is local
-// to the browser: theme persistence, path-prefix-aware API targeting, loading state, and clipboard
-// buttons. Parsed JRD rendering belongs in Rust view models and Askama templates.
+// to the browser: theme persistence, path-prefix-aware API targeting, context-sensitive
+// placeholders, and clipboard buttons. Parsed JRD rendering and lookup lifecycle state belong to
+// Rust view models, Askama templates, and htmx attributes.
 
-const state = document.querySelector("#state");
 const form = document.querySelector("#lookup-form");
 const resourceInput = document.querySelector("#resource");
-const submit = document.querySelector("#submit");
 const themeSelect = document.querySelector("#theme");
 const themeStorageKey = "webfinger-viewer-theme";
 
@@ -64,20 +63,6 @@ async function copy(text) {
 
 form.setAttribute("hx-get", apiPath());
 resourceInput.setAttribute("placeholder", resourcePlaceholder());
-
-// While htmx owns the request, the surrounding shell owns the global loading indicator.
-//
-// Target WebFinger status is rendered by the response fragment after the request completes. This
-// transient state only tells the user that the Worker lookup is in flight.
-document.body.addEventListener("htmx:beforeRequest", () => {
-  submit.disabled = true;
-  state.textContent = "Fetching";
-  state.className = "state-text warn";
-});
-
-document.body.addEventListener("htmx:afterRequest", () => {
-  submit.disabled = false;
-});
 
 themeSelect.addEventListener("change", () => applyTheme(themeSelect.value));
 

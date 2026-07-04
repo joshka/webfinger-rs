@@ -66,8 +66,8 @@ pub fn lookup_result(result: &LookupResult) -> String {
 /// Use this for viewer-level failures such as malformed resources or Worker fetch errors.
 /// Non-htmx or cross-site callers are rejected by `server` before this rendering path.
 pub fn lookup_error(message: &str) -> String {
-    let state = StateView::bad(message);
-    let template = LookupErrorTemplate { state };
+    let state = StateView::bad("Failed");
+    let template = LookupErrorTemplate { state, message };
     template.render().expect("lookup error template renders")
 }
 
@@ -108,4 +108,23 @@ struct LookupResultTemplate<'a> {
 struct LookupErrorTemplate<'a> {
     /// Header state swapped out-of-band by htmx.
     state: StateView<'a>,
+
+    /// Full viewer-level error shown in the result body.
+    message: &'a str,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lookup_error_keeps_header_short_and_body_specific() {
+        let html = lookup_error("missing resource");
+
+        assert!(html.contains(
+            r#"<span id="state" class="state-text bad" hx-swap-oob="true">Failed</span>"#
+        ));
+        assert!(html.contains("<h2>Lookup Error</h2>"));
+        assert!(html.contains("missing resource"));
+    }
 }

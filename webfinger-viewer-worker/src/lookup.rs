@@ -40,6 +40,7 @@ pub async fn fetch_webfinger(request: &LookupRequest) -> Result<LookupResult, Lo
     let content_type = response.headers().get("content-type")?;
     let redirect_location = response.headers().get("location")?;
     let body = read_capped_body(&mut response).await?;
+    log_lookup_result(request, status, content_type.as_deref(), body.truncated);
 
     Ok(LookupResult::new(LookupResultParts {
         request_url: request.target_url().to_string(),
@@ -84,6 +85,28 @@ fn target_redirect_mode() -> RequestRedirect {
 /// protocol context without making `server` understand WebFinger internals.
 pub fn log_lookup_error(error: &LookupError) {
     error!(?error, "webfinger lookup failed");
+}
+
+/// Logs target fetch outcomes.
+///
+/// The wasm entrypoint installs a console-backed tracing subscriber, so these events appear in
+/// Wrangler tail and Cloudflare dashboard logs. Keep the fields low-cardinality enough to filter by
+/// status and target host while still preserving the exact URL needed to reproduce a WebFinger
+/// debugging failure.
+fn log_lookup_result(
+    request: &LookupRequest,
+    status: u16,
+    content_type: Option<&str>,
+    truncated: bool,
+) {
+    info!(
+        status,
+        target_url = %request.target_url(),
+        resource = %request.resource(),
+        content_type = content_type.unwrap_or(""),
+        truncated,
+        "webfinger lookup result",
+    );
 }
 
 /// Captured target body after enforcing the viewer's response-size limit.

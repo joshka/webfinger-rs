@@ -14,6 +14,7 @@
 //! fragment rather than encoded as the Worker response status.
 
 use ::worker::{Context, Env, Method, Request, Response};
+use tracing::{error, info};
 
 use crate::lookup::{LookupPolicy, LookupRequest, fetch_webfinger, log_lookup_error};
 use crate::view;
@@ -51,9 +52,11 @@ pub async fn serve(request: Request, _env: Env, _ctx: Context) -> worker::Result
     }
 
     if method == Method::Get || method == Method::Head {
+        log_viewer_request(&method, url.path(), "page");
         return html_response(&view::page());
     }
 
+    log_viewer_request(&method, url.path(), "method_not_allowed");
     text_response("method not allowed", 405)
 }
 
@@ -69,26 +72,33 @@ async fn serve_lookup(request: Request) -> worker::Result<Response> {
     let url = request.url()?;
 
     if !is_htmx_request(&request)? {
+        log_viewer_request(&method, url.path(), "lookup_not_htmx");
         return text_response("not found", 404);
     }
     if is_cross_site_request(&request)? {
+        log_viewer_request(&method, url.path(), "lookup_cross_site");
         return text_response("forbidden", 403);
     }
 
     if method != Method::Get {
+        log_viewer_request(&method, url.path(), "lookup_method_not_allowed");
         return text_response("method not allowed", 405);
     }
 
     let policy = LookupPolicy::from_viewer_url(&url);
     let request = match LookupRequest::from_url_query(&url, &policy) {
         Ok(request) => request,
-        Err(error) => return html_fragment_response(&view::lookup_error(&error.to_string())),
+        Err(error) => {
+            error!(%error, "webfinger lookup input error");
+            return html_fragment_response(&view::lookup_error(&error.to_string()));
+        }
     };
 
     let result = match fetch_webfinger(&request).await {
         Ok(result) => result,
         Err(error) => {
             log_lookup_error(&error);
+            error!(%error, "webfinger lookup worker error");
             return html_fragment_response(&view::lookup_error(&error.to_string()));
         }
     };
@@ -165,4 +175,14 @@ fn is_cross_site_request(request: &Request) -> worker::Result<bool> {
         request.headers().get("sec-fetch-site")?.as_deref(),
         Some("cross-site")
     ))
+}
+
+/// Logs Worker request handling decisions.
+///
+/// The wasm entrypoint installs a console-backed tracing subscriber, so these events appear in
+/// Wrangler tail and Cloudflare dashboard logs. Keep the outcome vocabulary stable so dashboard
+/// filters can answer "was the Worker hit" and "which guard rejected this request" without
+/// exposing headers or other browser metadata.
+fn log_viewer_request(method: &Method, path: &str, outcome: &str) {
+    info!(method = ?method, path, outcome, "webfinger viewer request");
 }
