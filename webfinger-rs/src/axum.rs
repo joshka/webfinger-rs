@@ -41,7 +41,13 @@
 //!
 //! If extraction fails, Axum receives [`Rejection`], which returns `400 Bad Request` with a plain
 //! text message for missing or duplicated `resource`, missing host values, invalid percent
-//! encoding, relative resource references, or invalid resource URIs.
+//! encoding, relative resource references, or invalid resource URIs. Those rejection responses
+//! include the same `Access-Control-Allow-Origin: *` header as successful JRD responses so browser
+//! clients can inspect WebFinger endpoint errors.
+//!
+//! Path and method rejections happen before the extractor runs. Applications that need CORS on
+//! Axum's router-owned `404 Not Found` or `405 Method Not Allowed` responses should add route or
+//! middleware handling at the application boundary where those responses are generated.
 //!
 //! See also [`WebFingerRequest`] for the extractor impl, [`WebFingerResponse`] for the responder
 //! impl, and the [Axum example] for a runnable server.
@@ -159,7 +165,8 @@ impl IntoResponse for Rejection {
     /// Converts the rejection into a `400 Bad Request` Axum response.
     ///
     /// The body is a plain text error message intended to make local debugging and simple server
-    /// implementations straightforward.
+    /// implementations straightforward. The response includes the WebFinger CORS header so browser
+    /// clients can read malformed-request errors from the endpoint.
     ///
     /// See also the [`crate::axum`] module docs.
     fn into_response(self) -> AxumResponse {
@@ -169,7 +176,11 @@ impl IntoResponse for Rejection {
             Rejection::InvalidResource(error) => format!("invalid resource: {error}"),
             Rejection::InvalidRel(error) => error.to_string(),
         };
-        (StatusCode::BAD_REQUEST, message).into_response()
+        let cors_header = (
+            header::ACCESS_CONTROL_ALLOW_ORIGIN,
+            CORS_ALLOW_ORIGIN_HEADER,
+        );
+        (StatusCode::BAD_REQUEST, [cors_header], message).into_response()
     }
 }
 
@@ -373,6 +384,52 @@ mod tests {
         let response = app().oneshot(request).await?;
 
         assert_eq!(response.status(), StatusCode::OK, "{response:?}");
+        assert_eq!(
+            response.headers().get(header::ACCESS_CONTROL_ALLOW_ORIGIN),
+            Some(&CORS_ALLOW_ORIGIN_HEADER),
+        );
+        Ok(())
+    }
+
+    /// Includes the RFC 7033 CORS header on malformed WebFinger requests.
+    ///
+    /// Browser clients need to read WebFinger error responses as well as successful JRD responses.
+    /// Missing `resource` is a framework-independent extractor rejection that this adapter owns.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-5>.
+    #[tokio::test]
+    async fn malformed_request_sets_cors_header() -> Result {
+        let request = Request::builder()
+            .uri(WELL_KNOWN_PATH)
+            .header(HOST, "example.com")
+            .body(Body::empty())?;
+
+        let response = app().oneshot(request).await?;
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{response:?}");
+        assert_eq!(
+            response.headers().get(header::ACCESS_CONTROL_ALLOW_ORIGIN),
+            Some(&CORS_ALLOW_ORIGIN_HEADER),
+        );
+        Ok(())
+    }
+
+    /// Includes the RFC 7033 CORS header when duplicate resource parameters are rejected.
+    ///
+    /// This covers the ambiguous-request branch separately from a missing parameter, because both
+    /// are malformed WebFinger endpoint requests that browser clients should be able to inspect.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-5>.
+    #[tokio::test]
+    async fn duplicate_resource_sets_cors_header() -> Result {
+        let carol = "acct%3Acarol%40example.org";
+        let alice = "acct%3Aalice%40example.org";
+        let uri = format!("https://example.com{WELL_KNOWN_PATH}?resource={carol}&resource={alice}");
+        let request = Request::builder().uri(uri).body(Body::empty())?;
+
+        let response = app().oneshot(request).await?;
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{response:?}");
         assert_eq!(
             response.headers().get(header::ACCESS_CONTROL_ALLOW_ORIGIN),
             Some(&CORS_ALLOW_ORIGIN_HEADER),

@@ -43,7 +43,12 @@
 //!
 //! If extraction fails, Actix returns `400 Bad Request` for missing or duplicated `resource`,
 //! missing host values, invalid percent encoding, relative resource references, or invalid resource
-//! URIs.
+//! URIs. Those bad-request responses include the same `Access-Control-Allow-Origin: *` header as
+//! successful JRD responses so browser clients can inspect WebFinger endpoint errors.
+//!
+//! Path and method rejections happen before the extractor runs. Applications that need CORS on
+//! Actix router-owned `404 Not Found` or method-mismatch responses should add route or middleware
+//! handling at the application boundary where those responses are generated.
 //!
 //! See also [`WebFingerRequest`] for the extractor impl, [`WebFingerResponse`] for the responder
 //! impl, and the [Actix example] for a runnable server.
@@ -55,10 +60,12 @@
 use std::future::{Ready, ready};
 
 use actix_web::dev::Payload;
-use actix_web::error::ErrorBadRequest;
+use actix_web::http::StatusCode;
 use actix_web::http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, CONTENT_TYPE, HeaderValue};
 use actix_web::web::Json;
-use actix_web::{Error as ActixError, FromRequest, HttpRequest, HttpResponse, Responder};
+use actix_web::{
+    Error as ActixError, FromRequest, HttpRequest, HttpResponse, Responder, ResponseError,
+};
 use tracing::trace;
 
 use crate::http::CORS_ALLOW_ORIGIN;
@@ -134,11 +141,9 @@ impl FromRequest for WebFingerRequest {
     ///
     /// - If the request has zero or more than one `resource` query parameter, extraction returns a
     ///   bad request.
-    /// - If the request has no URI authority and no `Host` header, extraction returns
-    ///   `ErrorBadRequest("missing host")`.
+    /// - If the request has no URI authority and no `Host` header, extraction returns a bad request.
     /// - If the query contains malformed percent encoding, extraction returns a bad request.
-    /// - If `resource` is present but cannot be parsed as a URI, extraction returns
-    ///   `ErrorBadRequest("invalid resource: ...")`.
+    /// - If `resource` is present but cannot be parsed as a URI, extraction returns a bad request.
     ///
     /// See also the [`crate::actix`] module docs and the [Actix example].
     ///
@@ -180,14 +185,14 @@ fn extract_request(req: &HttpRequest) -> Result<WebFingerRequest, ActixError> {
         .host()
         .or_else(|| req.headers().get("host").and_then(|h| h.to_str().ok()))
         .map(|h| h.to_string())
-        .ok_or(ErrorBadRequest("missing host"))?;
+        .ok_or_else(|| bad_request("missing host"))?;
     let query: RequestParams = req.query_string().parse()?;
     let rels = query
         .rel
         .into_iter()
         .map(Rel::try_new)
         .collect::<Result<Vec<_>, _>>()
-        .map_err(ErrorBadRequest)?;
+        .map_err(bad_request)?;
     Ok(WebFingerRequest {
         host,
         resource: query.resource,
@@ -197,7 +202,43 @@ fn extract_request(req: &HttpRequest) -> Result<WebFingerRequest, ActixError> {
 
 impl From<RequestParamsError> for ActixError {
     fn from(error: RequestParamsError) -> Self {
-        ErrorBadRequest(error)
+        bad_request(error)
+    }
+}
+
+fn bad_request(error: impl ToString) -> ActixError {
+    WebFingerBadRequest {
+        message: error.to_string(),
+    }
+    .into()
+}
+
+/// Bad-request response for malformed WebFinger endpoint requests.
+///
+/// Actix's generic bad-request helper renders the right status and body but does not know that
+/// WebFinger endpoint errors need to be readable from browsers. Keeping this tiny response error
+/// local to the extractor preserves the existing error messages while adding the endpoint CORS
+/// header only to responses this adapter owns.
+#[derive(Debug)]
+struct WebFingerBadRequest {
+    message: String,
+}
+
+impl std::fmt::Display for WebFingerBadRequest {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.message.fmt(formatter)
+    }
+}
+
+impl ResponseError for WebFingerBadRequest {
+    fn status_code(&self) -> StatusCode {
+        StatusCode::BAD_REQUEST
+    }
+
+    fn error_response(&self) -> HttpResponse {
+        HttpResponse::build(self.status_code())
+            .insert_header((ACCESS_CONTROL_ALLOW_ORIGIN, CORS_ALLOW_ORIGIN_HEADER))
+            .body(self.message.clone())
     }
 }
 
@@ -251,6 +292,59 @@ mod tests {
         let response = test::call_service(&app, request).await;
 
         assert_eq!(response.status(), StatusCode::OK, "{response:?}");
+        assert_eq!(
+            response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN),
+            Some(&CORS_ALLOW_ORIGIN_HEADER),
+        );
+        Ok(())
+    }
+
+    /// Includes the RFC 7033 CORS header on malformed WebFinger requests.
+    ///
+    /// Browser clients need to read WebFinger error responses as well as successful JRD responses.
+    /// Missing `resource` is an extractor error that this adapter owns.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-5>.
+    #[actix_web::test]
+    async fn malformed_request_sets_cors_header() -> Result {
+        let app = App::new().route(WELL_KNOWN_PATH, web::get().to(webfinger));
+        let app = test::init_service(app).await;
+        let request = test::TestRequest::get()
+            .uri(WELL_KNOWN_PATH)
+            .insert_header(("host", "example.org"))
+            .to_request();
+
+        let response = test::call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{response:?}");
+        assert_eq!(
+            response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN),
+            Some(&CORS_ALLOW_ORIGIN_HEADER),
+        );
+        Ok(())
+    }
+
+    /// Includes the RFC 7033 CORS header when duplicate resource parameters are rejected.
+    ///
+    /// This covers the ambiguous-request branch separately from a missing parameter, because both
+    /// are malformed WebFinger endpoint requests that browser clients should be able to inspect.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-5>.
+    #[actix_web::test]
+    async fn duplicate_resource_sets_cors_header() -> Result {
+        let app = App::new().route(WELL_KNOWN_PATH, web::get().to(webfinger));
+        let app = test::init_service(app).await;
+        let carol = "acct%3Acarol%40example.org";
+        let alice = "acct%3Aalice%40example.org";
+        let uri = format!("{WELL_KNOWN_PATH}?resource={carol}&resource={alice}");
+        let request = test::TestRequest::get()
+            .uri(&uri)
+            .insert_header(("host", "example.org"))
+            .to_request();
+
+        let response = test::call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{response:?}");
         assert_eq!(
             response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN),
             Some(&CORS_ALLOW_ORIGIN_HEADER),
