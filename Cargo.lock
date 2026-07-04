@@ -2905,7 +2905,7 @@ dependencies = [
 
 [[package]]
 name = "webfinger-cli"
-version = "0.0.31"
+version = "0.0.32"
 dependencies = [
  "clap",
  "clap-cargo",
@@ -2923,7 +2923,7 @@ dependencies = [
 
 [[package]]
 name = "webfinger-rs"
-version = "0.0.31"
+version = "0.0.32"
 dependencies = [
  "actix-web",
  "async-convert",
@@ -2950,7 +2950,7 @@ dependencies = [
 
 [[package]]
 name = "webfinger-viewer-worker"
-version = "0.0.31"
+version = "0.0.32"
 dependencies = [
  "askama",
  "futures-util",
