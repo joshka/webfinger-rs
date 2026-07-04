@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.34](https://github.com/joshka/webfinger-rs/compare/webfinger-rs-v0.0.33...webfinger-rs-v0.0.34) - 2026-07-04
+
+### Other
+
+- Add CORS to WebFinger error responses ([#197](https://github.com/joshka/webfinger-rs/pull/197))
+
 ## [0.0.33](https://github.com/joshka/webfinger-rs/compare/webfinger-rs-v0.0.32...webfinger-rs-v0.0.33) - 2026-07-04
 
 ### Other

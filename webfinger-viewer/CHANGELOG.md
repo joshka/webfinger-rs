@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.34](https://github.com/joshka/webfinger-rs/compare/webfinger-viewer-v0.0.33...webfinger-viewer-v0.0.34) - 2026-07-04
+
+### Other
+
+- release v0.0.33 ([#193](https://github.com/joshka/webfinger-rs/pull/193))
+- Add Axum viewer runtime ([#196](https://github.com/joshka/webfinger-rs/pull/196))
+
 ## [0.0.33](https://github.com/joshka/webfinger-rs/compare/webfinger-viewer-v0.0.32...webfinger-viewer-v0.0.33) - 2026-07-04
 
 ### Other
