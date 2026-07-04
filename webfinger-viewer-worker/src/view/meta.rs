@@ -40,11 +40,7 @@ impl MetaView {
         let redirect_location = result.redirect_location.clone().unwrap_or_default();
         Self {
             status: result.status.to_string(),
-            status_class: if (200..300).contains(&result.status) {
-                "good"
-            } else {
-                "bad"
-            },
+            status_class: status_class(result.status),
             content_type: result
                 .content_type
                 .clone()
@@ -53,5 +49,31 @@ impl MetaView {
             has_redirect_location: !redirect_location.is_empty(),
             redirect_location,
         }
+    }
+}
+
+/// Returns the visual severity for a target HTTP status.
+///
+/// The viewer always shows the exact status code; this class only helps scan completed target
+/// responses. Redirects are warnings because the Worker intentionally does not follow them, while
+/// 4xx, 5xx, and Cloudflare edge responses remain explicit target errors.
+fn status_class(status: u16) -> &'static str {
+    match status {
+        200..=299 => "good",
+        300..=399 => "warn",
+        _ => "bad",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn status_class_marks_completed_response_ranges() {
+        assert_eq!(status_class(200), "good");
+        assert_eq!(status_class(302), "warn");
+        assert_eq!(status_class(404), "bad");
+        assert_eq!(status_class(522), "bad");
     }
 }

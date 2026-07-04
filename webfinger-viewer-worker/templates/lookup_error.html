@@ -2,29 +2,34 @@
    The endpoint is intentionally htmx-only; this fragment uses 200 so htmx swaps it. #}
 <span id="state" class="state-text {{ state.class_name }}" hx-swap-oob="true">{{ state.message }}</span>
 <div id="results" class="results">
-  <div class="status-strip" aria-live="polite">
+  <div class="status-strip diagnostic-strip" aria-live="polite">
     <div class="metric">
-      <span class="metric-title">Status</span>
+      <span class="metric-title">Phase</span>
       <span class="metric-value pill bad copyable">
-        Error<button class="copy-value" type="button" data-copy="Error" aria-label="Copy value">Copy</button>
+        {{ diagnostic.phase }}<button class="copy-value" type="button" data-copy="{{ diagnostic.phase }}" aria-label="Copy value">Copy</button>
       </span>
     </div>
     <div class="metric">
-      <span class="metric-title">Content type</span>
-      <span class="metric-value muted">-</span>
+      <span class="metric-title">Target status</span>
+      <span class="metric-value metric-code copyable">
+        {{ diagnostic.target_status }}<button class="copy-value" type="button" data-copy="{{ diagnostic.target_status }}" aria-label="Copy value">Copy</button>
+      </span>
     </div>
     <div class="metric">
       <span class="metric-title">Endpoint</span>
-      <span class="metric-value muted">-</span>
+      <span class="metric-value metric-code copyable">
+        {{ diagnostic.endpoint }}<button class="copy-value" type="button" data-copy="{{ diagnostic.endpoint }}" aria-label="Copy value">Copy</button>
+      </span>
     </div>
   </div>
   <div class="workspace">
     <section>
-      <div class="toolbar"><h2>Lookup Error</h2></div>
+      <div class="toolbar"><h2>{{ diagnostic.title }}</h2></div>
       <div class="list">
         <p class="empty error-message copyable">
-          {{ message }}<button class="copy-value" type="button" data-copy="{{ message }}" aria-label="Copy value">Copy</button>
+          {{ diagnostic.message }}<button class="copy-value" type="button" data-copy="{{ diagnostic.message }}" aria-label="Copy value">Copy</button>
         </p>
+        <p class="diagnostic-help">{{ diagnostic.help }}</p>
       </div>
     </section>
   </div>

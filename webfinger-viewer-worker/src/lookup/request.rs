@@ -81,7 +81,9 @@ impl LookupRequest {
         let target_url = if points_at_webfinger_endpoint(&resource) {
             webfinger_url(&resource, &rels, policy)?
         } else {
-            let _validated = resource.parse::<Resource>()?;
+            let _validated = resource
+                .parse::<Resource>()
+                .map_err(LookupError::InvalidResource)?;
             resource_url(&resource, &rels, policy)?
         };
         validate_target_url(&target_url)?;
@@ -142,7 +144,9 @@ fn webfinger_url(input: &str, rels: &[String], policy: &LookupPolicy) -> Result<
         .find_map(|(key, value)| (key == "resource").then(|| value.into_owned()))
         .ok_or(LookupError::MissingResource)?;
     validate_resource(&resource)?;
-    let _validated = resource.parse::<Resource>()?;
+    let _validated = resource
+        .parse::<Resource>()
+        .map_err(LookupError::InvalidResource)?;
 
     if !rels.is_empty() {
         url.set_query(None);
@@ -400,7 +404,7 @@ mod tests {
         let error =
             LookupRequest::new("alice".to_string(), Vec::new(), &production_policy()).unwrap_err();
 
-        assert!(matches!(error, LookupError::WebFinger(_)));
+        assert!(matches!(error, LookupError::InvalidResource(_)));
     }
 
     #[test]

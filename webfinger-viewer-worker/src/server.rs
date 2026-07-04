@@ -90,7 +90,7 @@ async fn serve_lookup(request: Request) -> worker::Result<Response> {
         Ok(request) => request,
         Err(error) => {
             error!(%error, "webfinger lookup input error");
-            return html_fragment_response(&view::lookup_error(&error.to_string()));
+            return html_fragment_response(&view::lookup_error(&error, None));
         }
     };
 
@@ -99,7 +99,8 @@ async fn serve_lookup(request: Request) -> worker::Result<Response> {
         Err(error) => {
             log_lookup_error(&error);
             error!(%error, "webfinger lookup worker error");
-            return html_fragment_response(&view::lookup_error(&error.to_string()));
+            let target_url = request.target_url().as_str();
+            return html_fragment_response(&view::lookup_error(&error, Some(target_url)));
         }
     };
     html_fragment_response(&view::lookup_result(&result))
