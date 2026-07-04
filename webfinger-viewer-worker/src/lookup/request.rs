@@ -35,31 +35,19 @@ pub struct LookupRequest {
 }
 
 impl LookupRequest {
-    /// Builds a lookup request from the viewer API query string.
+    /// Builds a lookup request from browser form values.
     ///
-    /// Empty `rel` query parameters are ignored because the browser UI may send optional text-box
-    /// state. Unknown query parameters are ignored so deployment platforms can add their own
-    /// routing metadata without breaking lookups. Resource, relation, and target URL sizes are
-    /// bounded before any outbound fetch so the Worker cannot be used to render or request
-    /// unbounded user input.
-    pub fn from_url_query(url: &Url, policy: &LookupPolicy) -> Result<Self, LookupError> {
-        let mut resource = None;
-        let mut rels = Vec::new();
-        for (key, value) in url.query_pairs() {
-            match key.as_ref() {
-                "resource" => resource = Some(value.into_owned()),
-                "rel" => {
-                    for rel in value.split([',', '\n']).map(str::trim) {
-                        if !rel.is_empty() {
-                            rels.push(rel.to_string());
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
-
+    /// The free-form relation text box may send comma/newline-separated values, while preset
+    /// checkboxes send repeated `rel` fields. Resource, relation, and target URL sizes are bounded
+    /// before any outbound fetch so the Worker cannot be used to render or request unbounded user
+    /// input.
+    pub fn from_form_values(
+        resource: Option<String>,
+        rel_values: Vec<String>,
+        policy: &LookupPolicy,
+    ) -> Result<Self, LookupError> {
         let resource = resource.ok_or(LookupError::MissingResource)?;
+        let rels = split_rel_values(rel_values);
         Self::new(resource, rels, policy)
     }
 
@@ -110,6 +98,24 @@ impl LookupRequest {
     pub fn target_url(&self) -> &Url {
         &self.target_url
     }
+}
+
+/// Normalizes raw relation form values into target `rel` query parameters.
+///
+/// Keeping this splitter near request construction ensures URL-query tests, POST form handling, and
+/// history URL construction can validate against the same accepted input shape.
+fn split_rel_values(rel_values: Vec<String>) -> Vec<String> {
+    rel_values
+        .into_iter()
+        .flat_map(|value| {
+            value
+                .split([',', '\n'])
+                .map(str::trim)
+                .filter(|rel| !rel.is_empty())
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .collect()
 }
 
 /// Returns true when the user supplied the WebFinger endpoint itself.

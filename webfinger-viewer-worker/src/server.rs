@@ -5,16 +5,17 @@
 //! target URLs are derived or how JRD fields are displayed; those belong to `lookup` and `view` so
 //! protocol behavior and rendering can be changed without reading response-header plumbing.
 //!
-//! `/api/lookup` is not a general JSON API. It is a same-page htmx endpoint for the bundled form:
-//! callers must send `HX-Request`, and obvious cross-site browser requests are rejected using Fetch
-//! Metadata. This is not authentication, but it avoids advertising the Worker as a public
+//! `/api/lookup` is not a general JSON API. It is a same-page htmx POST endpoint for the bundled
+//! form: callers must send `HX-Request`, and obvious cross-site browser requests are rejected using
+//! Fetch Metadata. This is not authentication, but it avoids advertising the Worker as a public
 //! server-side lookup API and prevents normal cross-origin browser reads because no CORS headers are
 //! emitted. Malformed viewer input and Worker-fetch failures still render HTML fragments with
 //! status `200` so htmx swaps them into `#results`. Target WebFinger status is displayed inside the
 //! fragment rather than encoded as the Worker response status.
 
-use ::worker::{Context, Env, Method, Request, Response};
+use ::worker::{Context, Env, FormEntry, Method, Request, Response};
 use tracing::{error, info};
+use url::{Url, form_urlencoded};
 
 use crate::lookup::{LookupPolicy, LookupRequest, fetch_webfinger, log_lookup_error};
 use crate::view;
@@ -53,7 +54,7 @@ pub async fn serve(request: Request, _env: Env, _ctx: Context) -> worker::Result
 
     if method == Method::Get || method == Method::Head {
         log_viewer_request(&method, url.path(), "page");
-        return html_response(&view::page());
+        return html_response(&view::page(&url));
     }
 
     log_viewer_request(&method, url.path(), "method_not_allowed");
@@ -67,7 +68,7 @@ pub async fn serve(request: Request, _env: Env, _ctx: Context) -> worker::Result
 /// actual Worker request, not a parallel set of derived arguments. The order of checks is also the
 /// endpoint policy: reject unsupported callers first, then reject cross-site browser traffic, then
 /// parse viewer input only for the supported same-page htmx path.
-async fn serve_lookup(request: Request) -> worker::Result<Response> {
+async fn serve_lookup(mut request: Request) -> worker::Result<Response> {
     let method = request.method();
     let url = request.url()?;
 
@@ -80,17 +81,22 @@ async fn serve_lookup(request: Request) -> worker::Result<Response> {
         return text_response("forbidden", 403);
     }
 
-    if method != Method::Get {
+    if method != Method::Post {
         log_viewer_request(&method, url.path(), "lookup_method_not_allowed");
         return text_response("method not allowed", 405);
     }
 
+    let form = LookupForm::from_request(&mut request).await?;
+    let history_url = viewer_history_url(&url, &form);
     let policy = LookupPolicy::from_viewer_url(&url);
-    let request = match LookupRequest::from_url_query(&url, &policy) {
+    let lookup_request =
+        LookupRequest::from_form_values(form.resource.clone(), form.rels.clone(), &policy);
+    let request = match lookup_request {
         Ok(request) => request,
         Err(error) => {
             error!(%error, "webfinger lookup input error");
-            return html_fragment_response(&view::lookup_error(&error, None));
+            let html = view::lookup_error(&error, None);
+            return html_fragment_response(&html, Some(&history_url));
         }
     };
 
@@ -100,10 +106,11 @@ async fn serve_lookup(request: Request) -> worker::Result<Response> {
             log_lookup_error(&error);
             error!(%error, "webfinger lookup worker error");
             let target_url = request.target_url().as_str();
-            return html_fragment_response(&view::lookup_error(&error, Some(target_url)));
+            let html = view::lookup_error(&error, Some(target_url));
+            return html_fragment_response(&html, Some(&history_url));
         }
     };
-    html_fragment_response(&view::lookup_result(&result))
+    html_fragment_response(&view::lookup_result(&result), Some(&history_url))
 }
 
 /// Returns the full viewer page shell.
@@ -144,17 +151,96 @@ fn text_response(body: &str, status: u16) -> worker::Result<Response> {
 /// htmx fragments use `200` for viewer-level errors so the browser swaps the failure UI normally.
 /// Target endpoint failures should be represented inside the fragment so the user can inspect the
 /// target status, headers, and body as the debugging result.
-fn html_fragment_response(html: &str) -> worker::Result<Response> {
-    let response = Response::builder()
+fn html_fragment_response(html: &str, history_url: Option<&str>) -> worker::Result<Response> {
+    let mut builder = Response::builder()
         .with_status(200)
         .with_header("content-type", "text/html; charset=utf-8")?
         .with_header("cache-control", "no-store")?
         .with_header("content-security-policy", CONTENT_SECURITY_POLICY)?
         .with_header("x-content-type-options", "nosniff")?
         .with_header("referrer-policy", "no-referrer")?
-        .with_header("permissions-policy", "clipboard-write=(self)")?
-        .fixed(html.as_bytes().to_vec());
+        .with_header("permissions-policy", "clipboard-write=(self)")?;
+    if let Some(history_url) = history_url {
+        builder = builder.with_header("hx-push-url", history_url)?;
+    }
+    let response = builder.fixed(html.as_bytes().to_vec());
     Ok(response)
+}
+
+/// Returns the viewer URL that represents a lookup in browser history.
+///
+/// htmx submits to `/api/lookup`, but browser history should stay on the user-facing viewer path
+/// such as `/webfinger?resource=acct%3Aalice%40example.com`. The query is rebuilt from supported
+/// form fields so empty optional `rel` controls and unrelated routing parameters do not pollute
+/// shareable URLs.
+fn viewer_history_url(lookup_url: &Url, form: &LookupForm) -> String {
+    let viewer_path = lookup_url
+        .path()
+        .strip_suffix(API_PATH)
+        .filter(|path| !path.is_empty())
+        .unwrap_or("/");
+    let query = viewer_history_query(form);
+    if query.is_empty() {
+        viewer_path.to_string()
+    } else {
+        format!("{viewer_path}?{query}")
+    }
+}
+
+/// Builds the canonical viewer query string from submitted form values.
+///
+/// Relation filters are accepted either as repeated `rel` parameters or comma/newline-separated
+/// text box values. Splitting them here makes the address bar match the POST body that
+/// `LookupRequest` sends to the target endpoint.
+fn viewer_history_query(form: &LookupForm) -> String {
+    let mut query = form_urlencoded::Serializer::new(String::new());
+    if let Some(resource) = form.resource.as_deref().filter(|value| !value.is_empty()) {
+        query.append_pair("resource", resource);
+    }
+    for value in &form.rels {
+        for rel in value.split([',', '\n']).map(str::trim) {
+            if !rel.is_empty() {
+                query.append_pair("rel", rel);
+            }
+        }
+    }
+    query.finish()
+}
+
+/// Raw lookup fields submitted by the htmx form.
+///
+/// The POST body is the only input that can trigger an outbound WebFinger fetch. These same fields
+/// also produce the pushed viewer URL, keeping history and shareable URLs as form state without
+/// making a plain GET page load perform network I/O against a target server.
+struct LookupForm {
+    /// Resource string from the required form field.
+    resource: Option<String>,
+
+    /// Raw relation values from the optional text box and preset checkboxes.
+    rels: Vec<String>,
+}
+
+impl LookupForm {
+    /// Reads the htmx form body from the Worker request.
+    ///
+    /// `Request::form_data` handles the browser's `application/x-www-form-urlencoded` submission.
+    /// File values are ignored because the viewer form has no file controls; treating them as
+    /// absent keeps malformed programmatic posts on the normal validation path.
+    async fn from_request(request: &mut Request) -> worker::Result<Self> {
+        let form = request.form_data().await?;
+        let resource = form.get_field("resource");
+        let rels = form
+            .get_all("rel")
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|entry| match entry {
+                FormEntry::Field(value) => Some(value),
+                FormEntry::File(_) => None,
+            })
+            .collect();
+
+        Ok(Self { resource, rels })
+    }
 }
 
 /// Returns true when the request came from htmx.
@@ -186,4 +272,48 @@ fn is_cross_site_request(request: &Request) -> worker::Result<bool> {
 /// exposing headers or other browser metadata.
 fn log_viewer_request(method: &Method, path: &str, outcome: &str) {
     info!(method = ?method, path, outcome, "webfinger viewer request");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn history_url_uses_viewer_path_not_api_path() {
+        let url = Url::parse("https://example.com/webfinger/api/lookup").unwrap();
+        let form = LookupForm {
+            resource: Some("acct:alice@example.com".to_string()),
+            rels: vec!["self".to_string()],
+        };
+
+        assert_eq!(
+            viewer_history_url(&url, &form),
+            "/webfinger?resource=acct%3Aalice%40example.com&rel=self"
+        );
+    }
+
+    #[test]
+    fn history_url_splits_and_omits_empty_relation_filters() {
+        let url = Url::parse("https://example.com/webfinger/api/lookup").unwrap();
+        let form = LookupForm {
+            resource: Some("acct:alice@example.com".to_string()),
+            rels: vec!["".to_string(), "self, issuer".to_string()],
+        };
+
+        assert_eq!(
+            viewer_history_url(&url, &form),
+            "/webfinger?resource=acct%3Aalice%40example.com&rel=self&rel=issuer"
+        );
+    }
+
+    #[test]
+    fn history_url_without_form_values_keeps_viewer_path() {
+        let url = Url::parse("https://example.com/webfinger/api/lookup").unwrap();
+        let form = LookupForm {
+            resource: None,
+            rels: Vec::new(),
+        };
+
+        assert_eq!(viewer_history_url(&url, &form), "/webfinger");
+    }
 }
