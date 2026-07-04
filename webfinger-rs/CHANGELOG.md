@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.32](https://github.com/joshka/webfinger-rs/compare/webfinger-rs-v0.0.31...webfinger-rs-v0.0.32) - 2026-07-04
+
+### Other
+
+- Add WebFinger viewer worker ([#183](https://github.com/joshka/webfinger-rs/pull/183))
+
 ## [0.0.31](https://github.com/joshka/webfinger-rs/compare/webfinger-rs-v0.0.30...webfinger-rs-v0.0.31) - 2026-07-02
 
 ### Other
