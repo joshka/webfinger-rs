@@ -158,8 +158,10 @@ pub enum LookupError {
     Url(#[from] url::ParseError),
 
     /// The resource string failed `webfinger-rs` resource validation.
-    #[error(transparent)]
-    WebFinger(#[from] webfinger_rs::ResourceError),
+    #[error(
+        "resource must be an absolute URI such as `acct:alice@example.com`, or a full `https://example.com/.well-known/webfinger?resource=...` URL; validation error: {0}"
+    )]
+    InvalidResource(#[source] webfinger_rs::ResourceError),
 
     /// Cloudflare Worker request, response, or header handling failed.
     #[error(transparent)]
