@@ -149,7 +149,7 @@ pub enum LookupError {
 
     /// The deployment only permits same-origin lookups for public traffic.
     #[error(
-        "this deployment only looks up WebFinger resources on {allowed_host}; use local Wrangler with a full localhost WebFinger URL for local server debugging"
+        "this deployment only looks up WebFinger resources on {allowed_host}; run the viewer locally with a full localhost WebFinger URL for local server debugging"
     )]
     OffOriginTarget { allowed_host: String },
 
@@ -163,9 +163,22 @@ pub enum LookupError {
     )]
     InvalidResource(#[source] webfinger_rs::ResourceError),
 
-    /// Cloudflare Worker request, response, or header handling failed.
-    #[error(transparent)]
-    Worker(#[from] worker::Error),
+    /// Runtime HTTP request, response, or body handling failed before a target response existed.
+    #[error("{phase} failed: {message}")]
+    Transport {
+        phase: &'static str,
+        message: String,
+    },
+}
+
+impl LookupError {
+    /// Builds a runtime transport error without coupling the shared viewer to the runtime type.
+    pub fn transport(phase: &'static str, error: impl std::fmt::Display) -> Self {
+        Self::Transport {
+            phase,
+            message: error.to_string(),
+        }
+    }
 }
 
 /// Builds the curl command shown by the UI.

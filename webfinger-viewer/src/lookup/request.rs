@@ -1,8 +1,8 @@
 //! Viewer request parsing and target URL construction.
 //!
 //! This module is the boundary where raw form query parameters become a bounded, policy-checked
-//! WebFinger request. Keep protocol validation here so the Worker fetch path can assume the target
-//! URL has already passed the deployment policy.
+//! WebFinger request. Keep protocol validation here so runtime fetch adapters can assume the
+//! target URL has already passed the deployment policy.
 
 use url::Url;
 use webfinger_rs::{Resource, WELL_KNOWN_PATH};
@@ -11,7 +11,7 @@ use super::{LookupError, LookupPolicy};
 
 // These limits bound what the viewer accepts and re-renders; they are not WebFinger protocol
 // limits. They are deliberately character-based because the UI displays these values as text, and
-// the final URL cap catches percent-encoding growth before the Worker performs the outbound fetch.
+// the final URL cap catches percent-encoding growth before the runtime performs the outbound fetch.
 const MAX_RESOURCE_CHARS: usize = 2_048;
 const MAX_REL_CHARS: usize = 512;
 const MAX_RELS: usize = 16;
@@ -19,7 +19,7 @@ const MAX_TARGET_URL_CHARS: usize = 4_096;
 
 /// Parsed lookup request from the browser API.
 ///
-/// The stored `target_url` is the actual URL fetched by Cloudflare. Keeping it next to the original
+/// The stored `target_url` is the actual URL fetched by the runtime. Keeping it next to the original
 /// `resource` and selected `rels` lets the UI show both the user's input and the normalized
 /// endpoint without recalculating protocol details in JavaScript.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,7 +30,7 @@ pub struct LookupRequest {
     /// Relation filters that should be sent as repeated `rel` query parameters.
     rels: Vec<String>,
 
-    /// Absolute `/.well-known/webfinger` endpoint fetched by the Worker runtime.
+    /// Absolute `/.well-known/webfinger` endpoint fetched by the runtime.
     target_url: Url,
 }
 
@@ -39,7 +39,7 @@ impl LookupRequest {
     ///
     /// The free-form relation text box may send comma/newline-separated values, while preset
     /// checkboxes send repeated `rel` fields. Resource, relation, and target URL sizes are bounded
-    /// before any outbound fetch so the Worker cannot be used to render or request unbounded user
+    /// before any outbound fetch so the viewer cannot render or request unbounded user
     /// input.
     pub fn from_form_values(
         resource: Option<String>,
@@ -55,9 +55,9 @@ impl LookupRequest {
     ///
     /// Full WebFinger URLs preserve their original endpoint unless the caller supplies new `rel`
     /// filters. Resource identifiers normally derive an HTTPS endpoint from the resource host,
-    /// matching RFC 7033 discovery expectations. Local Wrangler development is the exception:
+    /// matching RFC 7033 discovery expectations. Local development is the exception:
     /// loopback full URLs are normalized to HTTP, and loopback resource identifiers derive
-    /// `http://<host>:8787` so they can reach a companion local responder Worker.
+    /// `http://<host>:8787` so they can reach a companion local responder.
     pub fn new(
         resource: String,
         rels: Vec<String>,
@@ -69,7 +69,7 @@ impl LookupRequest {
         let target_url = if points_at_webfinger_endpoint(&resource) {
             webfinger_url(&resource, &rels, policy)?
         } else {
-            let _validated = resource
+            let resource = resource
                 .parse::<Resource>()
                 .map_err(LookupError::InvalidResource)?;
             resource_url(&resource, &rels, policy)?
@@ -94,7 +94,7 @@ impl LookupRequest {
         &self.rels
     }
 
-    /// Returns the policy-checked endpoint URL fetched by the Worker.
+    /// Returns the policy-checked endpoint URL fetched by the runtime.
     pub fn target_url(&self) -> &Url {
         &self.target_url
     }
@@ -150,7 +150,7 @@ fn webfinger_url(input: &str, rels: &[String], policy: &LookupPolicy) -> Result<
         .find_map(|(key, value)| (key == "resource").then(|| value.into_owned()))
         .ok_or(LookupError::MissingResource)?;
     validate_resource(&resource)?;
-    let _validated = resource
+    let _resource = resource
         .parse::<Resource>()
         .map_err(LookupError::InvalidResource)?;
 
@@ -173,7 +173,7 @@ fn webfinger_url(input: &str, rels: &[String], policy: &LookupPolicy) -> Result<
 /// `http://localhost:8787/.well-known/webfinger`. Use the full WebFinger URL input path when
 /// debugging a different local port or an exact query string from another client.
 fn resource_url(
-    resource: &str,
+    resource: &Resource,
     rels: &[String],
     policy: &LookupPolicy,
 ) -> Result<Url, LookupError> {
@@ -184,7 +184,7 @@ fn resource_url(
     let mut url = Url::parse(&format!("{origin}{WELL_KNOWN_PATH}"))?;
     {
         let mut query = url.query_pairs_mut();
-        query.append_pair("resource", resource);
+        query.append_pair("resource", resource.as_str());
         for rel in rels {
             query.append_pair("rel", rel);
         }
@@ -192,11 +192,11 @@ fn resource_url(
     Ok(url)
 }
 
-/// Normalizes loopback HTTPS URLs to HTTP during local Wrangler development.
+/// Normalizes loopback HTTPS URLs to HTTP during local development.
 ///
-/// Wrangler dev servers listen on plain HTTP. This viewer accepts `https://localhost:8787/...`
+/// Local development servers listen on plain HTTP. This viewer accepts `https://localhost:8787/...`
 /// because it is the standard WebFinger shape many people type first, but local mode rewrites that
-/// target to `http://localhost:8787/...` before the Worker fetches it. Production-like deployments
+/// target to `http://localhost:8787/...` before the runtime fetches it. Production-like deployments
 /// never rewrite schemes.
 fn normalize_local_loopback_scheme(
     url: &mut Url,
@@ -247,11 +247,11 @@ fn validate_rels(rels: &[String]) -> Result<(), LookupError> {
     Ok(())
 }
 
-/// Validates the final URL sent through the Worker runtime.
+/// Validates the final URL sent through the runtime.
 ///
 /// This is the last guard after percent-encoding, relation expansion, and full-URL preservation.
 /// It keeps curl rendering, logs, and the outbound request line within a predictable debugging-tool
-/// size without blocking localhost or private-host experiments during `wrangler dev`.
+/// size without blocking localhost or private-host experiments during local development.
 fn validate_target_url(url: &Url) -> Result<(), LookupError> {
     if url.as_str().chars().count() > MAX_TARGET_URL_CHARS {
         return Err(LookupError::TargetUrlTooLong {
@@ -266,8 +266,8 @@ fn validate_target_url(url: &Url) -> Result<(), LookupError> {
 /// `acct:` resources use the domain after the final `@`. URI resources use their URL host. Other
 /// resource schemes may still be valid WebFinger identifiers, but this viewer cannot infer where to
 /// query them without a host, so callers should provide a full WebFinger URL for those cases.
-fn resource_host(resource: &str) -> Result<String, LookupError> {
-    if let Some(account) = resource.strip_prefix("acct:") {
+fn resource_host(resource: &Resource) -> Result<String, LookupError> {
+    if let Some(account) = resource.as_str().strip_prefix("acct:") {
         let host = account
             .rsplit_once('@')
             .map(|(_, host)| host)
@@ -276,9 +276,10 @@ fn resource_host(resource: &str) -> Result<String, LookupError> {
         return Ok(host.to_string());
     }
 
-    let url = Url::parse(resource).map_err(|_| LookupError::CannotInferHost)?;
-    let host = url.host_str().ok_or(LookupError::CannotInferHost)?;
-    Ok(host.to_string())
+    resource
+        .host()
+        .map(str::to_string)
+        .ok_or(LookupError::CannotInferHost)
 }
 
 #[cfg(test)]
@@ -325,6 +326,33 @@ mod tests {
             request.target_url().as_str(),
             "https://example.com/.well-known/webfinger?resource=https%3A%2F%2Fexample.com%2Fusers%2Falice",
         );
+    }
+
+    #[test]
+    fn rejects_http_resource_without_authority_from_resource_model() {
+        let error = LookupRequest::new(
+            "https:example.com/users/alice".to_string(),
+            Vec::new(),
+            &production_policy(),
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            LookupError::InvalidResource(webfinger_rs::ResourceError::MissingHttpAuthority)
+        ));
+    }
+
+    #[test]
+    fn rejects_valid_resource_when_host_cannot_be_inferred() {
+        let error = LookupRequest::new(
+            "urn:isbn:9780143127796".to_string(),
+            Vec::new(),
+            &production_policy(),
+        )
+        .unwrap_err();
+
+        assert!(matches!(error, LookupError::CannotInferHost));
     }
 
     #[test]

@@ -73,6 +73,9 @@ use crate::{JrdUri, Link};
 /// `Response` can be used as a response in Axum handlers as it implements
 /// [`axum::response::IntoResponse`].
 ///
+/// [`axum::response::IntoResponse`]:
+///     https://docs.rs/axum/latest/axum/response/trait.IntoResponse.html
+///
 /// ```rust
 /// use axum::response::IntoResponse;
 /// use webfinger_rs::{Link, WebFingerRequest, WebFingerResponse};

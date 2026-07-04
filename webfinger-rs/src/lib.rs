@@ -56,8 +56,8 @@
 //! | --- | --- |
 //! | none | Core request/response types, builders, and URL conversion |
 //! | `reqwest` | Client execution helpers and Reqwest request/response conversions |
-//! | `axum` | [`WebFingerRequest`] extraction and [`WebFingerResponse`] responses in Axum via [`crate::axum`] |
-//! | `actix` | [`WebFingerRequest`] extraction and [`WebFingerResponse`] responses in Actix Web via [`crate::actix`] |
+//! | `axum` | [`WebFingerRequest`] extraction and [`WebFingerResponse`] responses in Axum via [`webfinger_rs::axum`] |
+//! | `actix` | [`WebFingerRequest`] extraction and [`WebFingerResponse`] responses in Actix Web via [`webfinger_rs::actix`] |
 //!
 //! # Primary types
 //!
@@ -92,8 +92,8 @@
 //! - mount the handler as `GET` at [`WELL_KNOWN_PATH`] so the router rejects other paths and
 //!   methods;
 //! - configure TLS and forwarded-proto handling at the server or reverse-proxy boundary; and
-//! - let the [`crate::axum`] or [`crate::actix`] extractor validate the request host, query
-//!   parameters, percent encoding, and `resource` URI.
+//! - let the [`webfinger_rs::axum`] or [`webfinger_rs::actix`] extractor validate the request host,
+//!   query parameters, percent encoding, and `resource` URI.
 //!
 //! A successful JRD response might look like this:
 //!
@@ -153,7 +153,7 @@
 //!
 //! Enable the `axum` feature to extract [`WebFingerRequest`] from the incoming request and return
 //! [`WebFingerResponse`] directly from your handler. Mount the handler at [`WELL_KNOWN_PATH`].
-//! See also [`crate::axum`] and the [Axum example].
+//! See also [`webfinger_rs::axum`] and the [Axum example].
 //!
 //! ```rust
 //! # #[cfg(feature = "axum")]
@@ -210,12 +210,13 @@
 //!
 //! [Axum example]:
 //!     https://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/axum.rs
+//! [`webfinger_rs::axum`]: https://docs.rs/webfinger-rs/latest/webfinger_rs/axum/
 //!
 //! # Actix quickstart
 //!
 //! Enable the `actix` feature to use the same request and response types in Actix Web handlers.
 //! As with the Axum integration, the route path should be [`WELL_KNOWN_PATH`]. See also
-//! [`crate::actix`] and the [Actix example].
+//! [`webfinger_rs::actix`] and the [Actix example].
 //!
 //! ```rust
 //! # #[cfg(feature = "actix")]
@@ -280,6 +281,7 @@
 //!
 //! [Actix example]:
 //!     https://github.com/joshka/webfinger-rs/blob/main/webfinger-rs/examples/actix.rs
+//! [`webfinger_rs::actix`]: https://docs.rs/webfinger-rs/latest/webfinger_rs/actix/
 //!
 //! # Compatibility
 //!
