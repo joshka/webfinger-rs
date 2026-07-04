@@ -44,6 +44,12 @@ environment, not the developer machine.
 The Worker can be mounted below a path such as `/webfinger`. It still queries the standard target
 path on the same host, such as `https://example.com/.well-known/webfinger`.
 
+The checked-in Wrangler config enables Cloudflare's `global_fetch_strictly_public` compatibility
+flag. Public deployments need this because the viewer performs server-side `fetch()` calls back to
+the same zone. Without the flag, Cloudflare can route that subrequest to the zone origin while
+ignoring same-zone Worker routes, which appears in the viewer as a target `522` even though the same
+`/.well-known/webfinger` URL works from a browser or local `curl`.
+
 1. Install the local JavaScript tooling:
 
 ```console

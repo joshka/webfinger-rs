@@ -1,6 +1,7 @@
 name = "webfinger-viewer-worker"
 main = "webfinger-viewer-worker/build/worker/shim.mjs"
 compatibility_date = "2026-07-02"
+compatibility_flags = ["global_fetch_strictly_public"]
 
 [build]
 command = "scripts/build-webfinger-viewer-worker.sh"
