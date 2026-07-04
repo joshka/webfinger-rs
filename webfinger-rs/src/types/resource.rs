@@ -1,4 +1,7 @@
+use std::borrow::Borrow;
+use std::cmp::Ordering;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 
 use http::Uri;
@@ -124,7 +127,7 @@ impl Eq for ResourceError {}
 /// [RFC 3986 section 2.3]: https://www.rfc-editor.org/rfc/rfc3986.html#section-2.3
 /// [RFC 3986 section 3.1]: https://www.rfc-editor.org/rfc/rfc3986.html#section-3.1
 /// [RFC 3986 section 3.2]: https://www.rfc-editor.org/rfc/rfc3986.html#section-3.2
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub struct Resource {
     text: String,
     host: Option<String>,
@@ -160,8 +163,60 @@ impl fmt::Display for Resource {
     }
 }
 
+/// Resource identity is the URI text.
+///
+/// The `host` field is a construction-time cache derived from `text`, so including it here would
+/// be redundant for `Resource` comparisons and incompatible with borrowed `str` lookup through
+/// [`Borrow`].
+impl PartialEq for Resource {
+    fn eq(&self, other: &Self) -> bool {
+        self.text == other.text
+    }
+}
+
+/// Equality is complete when URI text matches.
+///
+/// `host` is derived from `text`, so it cannot distinguish two otherwise equal resources.
+impl Eq for Resource {}
+
+/// Partial ordering follows URI text only.
+///
+/// This keeps ordering consistent with equality and avoids treating the cached `host` as part of
+/// resource identity.
+impl PartialOrd for Resource {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+/// Ordering follows URI text only.
+///
+/// The cached `host` value is intentionally excluded so `Resource` sorts the same way as its
+/// borrowed string form.
+impl Ord for Resource {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.text.cmp(&other.text)
+    }
+}
+
+/// Hashing uses URI text only.
+///
+/// This matches [`Borrow<str>`] lookup expectations for hash collections; hashing the cached
+/// `host` would make `Resource` keys hash differently from their borrowed `str` form.
+impl Hash for Resource {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.text.hash(state);
+    }
+}
+
 impl AsRef<str> for Resource {
     fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl Borrow<str> for Resource {
+    fn borrow(&self) -> &str {
         self.as_str()
     }
 }
@@ -302,6 +357,8 @@ fn scheme(resource: &str) -> Option<&str> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::{HashMap, HashSet};
+
     use super::*;
 
     /// Accepts `acct:` resources because they are absolute URIs with a scheme.
@@ -314,8 +371,8 @@ mod tests {
 
     /// Accepts hierarchical HTTPS resources with an authority.
     ///
-    /// Host extraction is used by the CLI fallback path, so this test covers both storage of the
-    /// original resource text and the derived host/URI accessors.
+    /// Host extraction is used by the CLI fallback path, so this test covers both the original
+    /// resource text and the derived host/URI accessors.
     #[test]
     fn accepts_https_resource() {
         let resource = "https://example.org/users/carol"
@@ -328,6 +385,43 @@ mod tests {
             resource.uri().map(|uri| uri.to_string()),
             Some("https://example.org/users/carol".to_string()),
         );
+    }
+
+    /// Resource identity is the resource URI text.
+    ///
+    /// Borrowed `str` lookup in hash collections must use the same equality and hash inputs as
+    /// owned `Resource` values. This keeps `Borrow<str>` compatible with `Eq` and `Hash` even for
+    /// hierarchical resources whose host is cached during construction.
+    #[test]
+    fn borrowed_str_lookup_uses_resource_text_identity() {
+        let resource = "https://example.org/users/carol"
+            .parse::<Resource>()
+            .unwrap();
+        let mut set = HashSet::new();
+        set.insert(resource.clone());
+
+        let mut map = HashMap::new();
+        map.insert(resource, "profile");
+
+        assert!(set.contains("https://example.org/users/carol"));
+        assert_eq!(map.get("https://example.org/users/carol"), Some(&"profile"));
+        assert!(!set.contains("https://example.org"));
+        assert_eq!(map.get("https://example.org"), None);
+    }
+
+    /// Caches host text during construction without making host part of identity.
+    #[test]
+    fn caches_http_resource_host_at_construction() {
+        for (resource, host) in [
+            ("https://example.org/users/carol", "example.org"),
+            ("https://example.org:8443/users/carol", "example.org"),
+            ("https://user:pass@example.org/users/carol", "example.org"),
+            ("https://[::1]:8443/users/carol", "[::1]"),
+        ] {
+            let resource = resource.parse::<Resource>().unwrap();
+
+            assert_eq!(resource.host(), Some(host));
+        }
     }
 
     /// Accepts owned resource text through the same validation path as parsed `&str` input.
