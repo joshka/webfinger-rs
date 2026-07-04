@@ -12,12 +12,19 @@
 //! Public HTTP error bodies intentionally avoid detailed provider/configuration failures, except
 //! for the missing setup key message. Detailed failures are logged through `tracing` for Wrangler
 //! tail and Cloudflare Worker logs.
+//!
+//! WebFinger responses use `Access-Control-Allow-Origin: *` because the endpoint is designed for
+//! public browser-readable discovery. The Worker applies that header to responses generated for
+//! `/.well-known/webfinger`, including malformed queries, unknown resources, unsupported methods,
+//! and provider failures. It does not add the WebFinger CORS header to unrelated paths such as
+//! `/health`, so adding another route does not accidentally make that route publicly readable from
+//! browsers.
 
 mod kv;
 mod observability;
 
 use axum::extract::FromRequestParts;
-use axum::http::{Method, StatusCode, header};
+use axum::http::{HeaderValue, Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use thiserror::Error;
 use tracing::{error, info, instrument};
@@ -26,6 +33,8 @@ use webfinger_service::{ProviderError, WebFingerProvider};
 use worker::{Context, Env, HttpRequest};
 
 pub use crate::kv::{KvConfigProvider, WEBFINGER_CONFIG_BINDING};
+
+const CORS_ALLOW_ORIGIN_HEADER: HeaderValue = HeaderValue::from_static("*");
 
 /// A WebFinger Worker backed by a caller-provided provider.
 ///
@@ -87,12 +96,17 @@ where
     let path = request.uri().path().to_string();
     if method != Method::GET {
         log_webfinger_request(&method, &path, "method_not_allowed");
-        return (
+        let response = (
             StatusCode::METHOD_NOT_ALLOWED,
             [(header::ALLOW, Method::GET.as_str())],
             "method not allowed",
         )
             .into_response();
+        return if path == WELL_KNOWN_PATH {
+            with_webfinger_cors(response)
+        } else {
+            response
+        };
     }
     if path == "/health" {
         log_webfinger_request(&method, &path, "health");
@@ -111,10 +125,19 @@ where
         }
         Err(rejection) => {
             log_webfinger_request(&method, &path, "bad_request");
-            return rejection.into_response();
+            return with_webfinger_cors(rejection.into_response());
         }
     };
     webfinger(provider, request).await.into_response()
+}
+
+/// Adds the public WebFinger CORS header to a response already known to belong to the endpoint.
+fn with_webfinger_cors(mut response: Response) -> Response {
+    response.headers_mut().insert(
+        header::ACCESS_CONTROL_ALLOW_ORIGIN,
+        CORS_ALLOW_ORIGIN_HEADER,
+    );
+    response
 }
 
 #[instrument(skip(provider, request), fields(resource = %request.resource))]
@@ -149,7 +172,7 @@ enum HttpError {
 
 impl IntoResponse for HttpError {
     fn into_response(self) -> Response {
-        match self {
+        let response = match self {
             HttpError::NotFound => (StatusCode::NOT_FOUND, "resource not found").into_response(),
             HttpError::Provider(error) => {
                 error!(?error, "webfinger provider failed");
@@ -163,7 +186,8 @@ impl IntoResponse for HttpError {
                 };
                 (StatusCode::INTERNAL_SERVER_ERROR, message).into_response()
             }
-        }
+        };
+        with_webfinger_cors(response)
     }
 }
 
@@ -196,10 +220,32 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn unknown_resource_sets_cors_header() {
+        let response = call("/.well-known/webfinger?resource=acct:bob@example.com").await;
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert_eq!(
+            response.headers().get(header::ACCESS_CONTROL_ALLOW_ORIGIN),
+            Some(&CORS_ALLOW_ORIGIN_HEADER),
+        );
+    }
+
+    #[tokio::test]
     async fn maps_unknown_path_to_not_found() {
         let response = call("/").await;
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn unknown_path_does_not_set_webfinger_cors_header() {
+        let response = call("/").await;
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert_eq!(
+            response.headers().get(header::ACCESS_CONTROL_ALLOW_ORIGIN),
+            None,
+        );
     }
 
     #[tokio::test]
@@ -219,10 +265,59 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn unsupported_webfinger_method_sets_cors_header() {
+        let provider = StaticConfigProvider::from_toml(EXAMPLE_CONFIG).unwrap();
+        let request = Request::builder()
+            .method(Method::POST)
+            .uri("/.well-known/webfinger?resource=acct:alice@example.com")
+            .header("host", "example.com")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = Worker::new(provider).serve(request).await;
+
+        assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+        assert_eq!(
+            response.headers().get(header::ACCESS_CONTROL_ALLOW_ORIGIN),
+            Some(&CORS_ALLOW_ORIGIN_HEADER),
+        );
+    }
+
+    #[tokio::test]
+    async fn unsupported_non_webfinger_method_does_not_set_cors_header() {
+        let provider = StaticConfigProvider::from_toml(EXAMPLE_CONFIG).unwrap();
+        let request = Request::builder()
+            .method(Method::POST)
+            .uri("/health")
+            .header("host", "example.com")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = Worker::new(provider).serve(request).await;
+
+        assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+        assert_eq!(
+            response.headers().get(header::ACCESS_CONTROL_ALLOW_ORIGIN),
+            None,
+        );
+    }
+
+    #[tokio::test]
     async fn maps_malformed_query_to_bad_request() {
         let response = call("/.well-known/webfinger").await;
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn malformed_query_sets_cors_header() {
+        let response = call("/.well-known/webfinger").await;
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert_eq!(
+            response.headers().get(header::ACCESS_CONTROL_ALLOW_ORIGIN),
+            Some(&CORS_ALLOW_ORIGIN_HEADER),
+        );
     }
 
     #[tokio::test]
@@ -236,6 +331,17 @@ mod tests {
         let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let response: WebFingerResponse = serde_json::from_slice(&body).unwrap();
         assert_eq!(response.subject.as_ref(), "acct:alice@example.com");
+    }
+
+    #[tokio::test]
+    async fn successful_response_sets_cors_header() {
+        let response = call("/.well-known/webfinger?resource=acct:alice@example.com").await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get(header::ACCESS_CONTROL_ALLOW_ORIGIN),
+            Some(&CORS_ALLOW_ORIGIN_HEADER),
+        );
     }
 
     #[tokio::test]
@@ -257,6 +363,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn missing_config_sets_cors_header() {
+        let request = Request::builder()
+            .uri("/.well-known/webfinger?resource=acct:alice@example.com")
+            .header("host", "example.com")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = Worker::new(MissingConfigProvider).serve(request).await;
+
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            response.headers().get(header::ACCESS_CONTROL_ALLOW_ORIGIN),
+            Some(&CORS_ALLOW_ORIGIN_HEADER),
+        );
+    }
+
+    #[tokio::test]
     async fn provider_errors_do_not_expose_config_details() {
         let request = Request::builder()
             .uri("/.well-known/webfinger?resource=acct:alice@example.com")
@@ -272,6 +395,23 @@ mod tests {
         let body = String::from_utf8(body.to_vec()).unwrap();
         assert!(body.contains("Check the Worker logs"));
         assert!(!body.contains("acct:alice@example.com"));
+    }
+
+    #[tokio::test]
+    async fn provider_errors_set_cors_header() {
+        let request = Request::builder()
+            .uri("/.well-known/webfinger?resource=acct:alice@example.com")
+            .header("host", "example.com")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = Worker::new(InvalidConfigProvider).serve(request).await;
+
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            response.headers().get(header::ACCESS_CONTROL_ALLOW_ORIGIN),
+            Some(&CORS_ALLOW_ORIGIN_HEADER),
+        );
     }
 
     async fn call(uri: &str) -> Response {
