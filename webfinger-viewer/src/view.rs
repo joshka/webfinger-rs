@@ -188,7 +188,7 @@ struct LookupErrorTemplate<'a> {
 ///
 /// Target `404`, `500`, and Cloudflare edge codes such as `522` are rendered by
 /// `LookupResultTemplate` because the Worker received an HTTP response. This view is reserved for
-/// viewer input, deployment policy, URL construction, and Worker transport failures where the most
+/// viewer input, deployment policy, URL construction, and runtime transport failures where the most
 /// useful debugging fact is why no target status code could be displayed.
 struct ErrorDiagnosticView {
     /// Short phase label shown in the metadata strip.
@@ -218,15 +218,15 @@ impl ErrorDiagnosticView {
     /// looking the same as syntax or RFC resource-validation failures.
     fn from_lookup_error(error: &LookupError, target_url: Option<&str>) -> Self {
         match error {
-            LookupError::Worker(_) => Self {
-                phase: "Worker fetch",
+            LookupError::Transport { phase, .. } => Self {
+                phase,
                 target_status: "No response",
                 endpoint: target_url
                     .unwrap_or("Target request was not built")
                     .to_string(),
                 title: "Fetch Error",
                 message: error.to_string(),
-                help: "The Worker attempted the endpoint but did not receive an HTTP response. Check local server availability, protocol, port, TLS, and Cloudflare Worker fetch restrictions.",
+                help: "The viewer attempted the endpoint but did not receive an HTTP response. Check local server availability, protocol, port, TLS, DNS, and runtime fetch restrictions.",
             },
             LookupError::OffOriginTarget { .. } => Self {
                 phase: "Deployment policy",
@@ -234,7 +234,7 @@ impl ErrorDiagnosticView {
                 endpoint: "Blocked before fetch".to_string(),
                 title: "Policy Error",
                 message: error.to_string(),
-                help: "This deployment is same-origin by default. Use the public site's own WebFinger resources here, or use local Wrangler with a full localhost WebFinger URL for local debugging.",
+                help: "This deployment is same-origin by default. Use the public site's own WebFinger resources here, or run the viewer locally with a full localhost WebFinger URL for local debugging.",
             },
             LookupError::Url(_)
             | LookupError::UnsupportedScheme(_)
@@ -306,15 +306,14 @@ mod tests {
     }
 
     #[test]
-    fn lookup_error_shows_target_url_for_worker_failures() {
-        let error =
-            LookupError::Worker(worker::Error::RustError("Network connection lost.".into()));
+    fn lookup_error_shows_target_url_for_transport_failures() {
+        let error = LookupError::transport("Native fetch", "Network connection lost.");
         let html = lookup_error(
             &error,
             Some("http://localhost:8787/.well-known/webfinger?resource=acct%3Aalice%40localhost"),
         );
 
-        assert!(html.contains("Worker fetch"));
+        assert!(html.contains("Native fetch"));
         assert!(html.contains("No response"));
         assert!(html.contains("http://localhost:8787/.well-known/webfinger"));
         assert!(html.contains("Network connection lost."));

@@ -79,7 +79,11 @@ use crate::{Error, Rel, Resource};
 /// # }
 /// ```
 ///
-/// `Request` can be used as an Axum extractor as it implements [`axum::extract::FromRequestParts`].
+/// `Request` can be used as an Axum extractor as it implements
+/// [`axum::extract::FromRequestParts`].
+///
+/// [`axum::extract::FromRequestParts`]:
+///     https://docs.rs/axum/latest/axum/extract/trait.FromRequestParts.html
 ///
 /// ```rust
 /// use webfinger_rs::{WebFingerRequest, WebFingerResponse};

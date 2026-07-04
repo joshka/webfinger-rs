@@ -1,41 +1,14 @@
 # WebFinger Viewer Worker
 
-`webfinger-viewer-worker` is a Rust Cloudflare Worker that serves a WebFinger viewer and debugging
-UI. It is separate from the server-side WebFinger responder Worker and does not read responder
-configuration.
+`webfinger-viewer-worker` is the Cloudflare Worker runtime for the WebFinger viewer. It adapts
+Worker requests, responses, server-side `fetch()`, and console-backed logging to the shared
+[`webfinger-viewer`](../webfinger-viewer/README.md) crate.
 
-The browser UI calls this Worker for lookups. The Worker then fetches the target
-`/.well-known/webfinger` endpoint server-side, which avoids browser CORS failures while keeping
-public deployments constrained to the hostname that served the viewer.
+Use [`webfinger-viewer-axum`](../webfinger-viewer-axum/README.md) for the native Axum runtime:
 
-Public deployments are same-origin by default: a viewer served from `https://example.com/webfinger`
-can inspect `https://example.com/.well-known/webfinger`, but it rejects lookups for unrelated
-hosts. Local Wrangler sessions are the exception. When the viewer itself is served from
-`localhost`, `127.0.0.1`, or `::1`, off-origin lookups are allowed so a local viewer can inspect
-public resources such as `acct:joshka@hachyderm.io` and another local Worker on a port such as
-`8787`. Plain loopback resources such as `acct:alice@localhost` derive
-`http://localhost:8787/.well-known/webfinger`, and loopback full URLs entered as
-`https://localhost:8787/...` are normalized to `http://localhost:8787/...` because Wrangler dev
-serves plain HTTP. In a deployed Cloudflare Worker, `localhost` refers to the Worker runtime
-environment, not the developer machine.
-
-## Features
-
-- Accepts same-origin `acct:` resources such as `acct:alice@example.com` when deployed on
-  `example.com`.
-- Accepts full WebFinger URLs such as
-  `https://example.com/.well-known/webfinger?resource=acct:alice@example.com`.
-- Accepts arbitrary resource hosts during local Wrangler development, including
-  `acct:joshka@hachyderm.io`.
-- Maps local resource identifiers such as `acct:alice@localhost` and `acct:alice@127.0.0.1` to the
-  default local responder port `8787`.
-- Accepts full loopback WebFinger URLs during local Wrangler development, such as
-  `http://127.0.0.1:8787/.well-known/webfinger?resource=acct%3Aalice%40localhost`.
-- Adds optional repeated `rel` filters to the target request.
-- Shows HTTP status, content type, request URL, redirect `Location`, parsed JRD JSON, and raw
-  response text.
-- Renders JRD aliases, properties, and links in a readable layout.
-- Provides a copyable `curl -i` command for the exact target lookup.
+```console
+cargo run -p webfinger-viewer-axum
+```
 
 ## Deploy
 
@@ -102,7 +75,7 @@ and Cloudflare dashboard logs. Useful log events include:
   state.
 - lookup input and Worker-fetch errors at error level.
 
-## Local Development
+## Local Worker Development
 
 Run Wrangler locally:
 
@@ -110,79 +83,25 @@ Run Wrangler locally:
 npm run dev:viewer
 ```
 
-Then open the local Wrangler URL and query a resource such as:
-
-```text
-acct:joshka@hachyderm.io
-```
-
-To inspect a local WebFinger responder running on another Wrangler port, query the full target URL:
-
-```text
-http://127.0.0.1:8787/.well-known/webfinger?resource=acct%3Aalice%40localhost
-```
-
-For the common local responder port, plain loopback resources also work:
-
-```text
-acct:alice@localhost
-acct:alice@127.0.0.1
-```
-
-If you type the standard HTTPS form for a loopback Wrangler target, local mode normalizes it to
-HTTP before fetching because Wrangler dev serves plain HTTP:
-
-```text
-https://localhost:8787/.well-known/webfinger?resource=acct%3Aalice%40localhost
-```
-
-Production deployments should use resources whose host matches the page host. Local Wrangler
-sessions are intentionally more permissive because they are a developer debugging surface.
+Then open the local Wrangler URL. Local loopback viewer sessions allow off-origin lookups, including
+public resources and another local WebFinger server on port `8787`.
 
 ## Implementation Map
 
-The Worker is split so future UI or protocol changes have one clear owner:
-
-- `src/server.rs` owns Cloudflare Worker request handling. It routes the page shell and
-  `/api/lookup`, rejects non-htmx or cross-site browser lookup requests, and returns htmx result
-  fragments for the bundled form.
-- `src/lookup.rs` owns WebFinger behavior. It parses viewer input, constructs the target
-  `/.well-known/webfinger` URL, enforces same-origin or local-loopback policy, performs the
-  server-side fetch, captures transport metadata, and returns the debugging payload.
-- `src/view.rs` owns view models and renders Askama templates. It embeds `assets/app.css`,
-  `assets/app.js`, and vendored `assets/vendor/htmx.min.js` into the page so deploys do not need
-  separate asset routes and Cargo-only CI does not need npm packages installed. The vendored htmx
-  file should match the pinned `htmx.org` version in the root `package.json` and
-  `package-lock.json`.
-- `templates/page.html` is the full page shell. `templates/lookup_result.html` and
-  `templates/lookup_error.html` are htmx fragments swapped into `#results`.
-
-htmx form submissions receive HTML fragments. Viewer-level failures such as malformed resources or
-Worker fetch errors intentionally return `200` for htmx requests so the browser swaps the error
-panel. `/api/lookup` is not a public JSON API: non-htmx callers receive `404`, and browser requests
-with `Sec-Fetch-Site: cross-site` receive `403`. Those checks are defense in depth rather than
-authentication; direct clients can spoof htmx and Fetch Metadata headers. They keep the supported
-contract narrow and avoid CORS-enabled use of the Worker as a general server-side lookup endpoint.
-
-Lookup input is bounded before the Worker fetches a target: resource strings, relation filter
-count, relation filter length, final target URL length, target policy, and captured response body
-size all have explicit limits. Response headers also set a restrictive baseline for browser use,
-including
-`Content-Security-Policy`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`.
-The CSP allows inline script and style because the Worker embeds htmx, CSS, and local JavaScript in
-one path-mounted page response; it still blocks remote scripts, framing, base URI changes, and
-cross-origin connections.
-
-The page is served as one HTML response even though the source is split into templates, CSS, and
-JavaScript. That keeps path-mounted deploys such as `/webfinger` simple and avoids asset routing
-and cache invalidation rules in this small Worker.
+- `src/lib.rs` owns the Worker fetch event and installs wasm logging.
+- `src/server.rs` owns Worker request extraction, response construction, form parsing, and the
+  Worker `fetch()` adapter.
+- [`webfinger-viewer`](../webfinger-viewer/README.md) owns the shared route policy, lookup
+  validation, htmx fragments, templates, and assets.
+- [`webfinger-viewer-worker`](README.md) does not depend on
+  [`webfinger-viewer-axum`](../webfinger-viewer-axum/README.md); native startup and reqwest-backed
+  fetch live only in the Axum crate.
 
 ## Validation
 
 Useful checks for this crate:
 
 ```console
-cargo fmt --all --check
 cargo test -p webfinger-viewer-worker
 cargo check -p webfinger-viewer-worker --target wasm32-unknown-unknown
 markdownlint-cli2 --no-globs webfinger-viewer-worker/README.md

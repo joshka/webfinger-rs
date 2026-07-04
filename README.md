@@ -46,18 +46,29 @@ This repository also contains a configurable WebFinger responder split across th
 - [`webfinger-service-worker`](webfinger-service-worker/README.md) is the Cloudflare Worker
   adapter. It reads TOML configuration from Workers KV and serves `/.well-known/webfinger`.
 
-This repository also contains `webfinger-viewer-worker`, a separate Rust Cloudflare Worker that
-serves a browser UI for inspecting WebFinger discovery behavior. It is a debugging tool, not the
-server-side WebFinger responder: the page accepts an `acct:` resource or full WebFinger URL, asks
-the Worker to fetch the target `/.well-known/webfinger` endpoint server-side, and renders the
+This repository also contains a Rust viewer for inspecting WebFinger discovery behavior. It is a
+debugging tool, not the server-side WebFinger responder: the page accepts an `acct:` resource or
+full WebFinger URL, asks the Rust server to fetch the target
+`/.well-known/webfinger` endpoint server-side, and renders the
 target HTTP status, content type, redirect `Location`, parsed JRD fields, raw JSON, and a copyable
 `curl` command.
 
+The viewer is split into three crates:
+
+- [`webfinger-viewer`](webfinger-viewer/README.md) owns shared route policy, lookup request/result
+  types, htmx behavior, Askama templates, assets, and runtime-neutral config.
+- [`webfinger-viewer-axum`](webfinger-viewer-axum/README.md) owns the native Axum server,
+  reqwest-backed target fetches, Tokio and rustls setup, Tower HTTP tracing, and the local CLI.
+- [`webfinger-viewer-worker`](webfinger-viewer-worker/README.md) owns the Cloudflare Worker
+  entrypoint, Worker request/response conversion, Worker `fetch()`, and wasm console tracing.
+
 The viewer is same-origin by default for public deployments, so a page mounted at
-`https://example.com/webfinger` inspects `https://example.com/.well-known/webfinger`. Local
+`https://example.com/webfinger` inspects `https://example.com/.well-known/webfinger`. Native or
 Wrangler sessions can use full loopback WebFinger URLs to inspect another local server. See
-[`webfinger-viewer-worker/README.md`](webfinger-viewer-worker/README.md) for local development,
-validation, and deployment notes.
+[`webfinger-viewer/README.md`](webfinger-viewer/README.md) for shared viewer behavior,
+[`webfinger-viewer-axum/README.md`](webfinger-viewer-axum/README.md) for native local development,
+and [`webfinger-viewer-worker/README.md`](webfinger-viewer-worker/README.md) for Cloudflare
+deployment.
 
 ## Primary types
 

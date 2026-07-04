@@ -1,0 +1,6 @@
+[server]
+host = "127.0.0.1"
+port = 8788
+
+[lookup]
+local_responder_port = 8787

@@ -1,19 +1,20 @@
 //! Deployment policy for target WebFinger fetches.
 //!
 //! Public deployments are same-origin by default so the viewer remains a debugging UI for the site
-//! that serves it, not an unrestricted server-side fetch proxy. Local Wrangler development gets an
+//! that serves it, not an unrestricted server-side fetch proxy. Local development gets an
 //! off-origin exception so the local viewer can inspect arbitrary public resources and local
 //! responders without relaxing production deployments.
 
 use url::Url;
 
 use super::LookupError;
+use crate::config::LookupConfig;
 
 /// Deployment-derived policy for deciding which target endpoints the viewer may fetch.
 ///
 /// Public deployments are same-origin by default: the viewer may only fetch the WebFinger endpoint
 /// for the host that served the UI. When the viewer itself is running on loopback under
-/// `wrangler dev`, off-origin targets are allowed so a local viewer can inspect public WebFinger
+/// loopback, off-origin targets are allowed so a local viewer can inspect public WebFinger
 /// resources such as `acct:joshka@hachyderm.io` and local servers on another port. This keeps
 /// production behavior conservative without requiring checked-in environment files for local
 /// development.
@@ -21,33 +22,35 @@ use super::LookupError;
 pub struct LookupPolicy {
     viewer_origin: Origin,
     allow_off_origin_targets: bool,
+    local_responder_port: u16,
 }
 
 impl LookupPolicy {
-    /// Default local responder port used for loopback `acct:` resources in Wrangler development.
-    ///
-    /// A plain WebFinger resource such as `acct:alice@localhost` does not contain a port. During
-    /// local development the common repo workflow is a viewer Worker on one Wrangler port and a
-    /// responder Worker on `8787`, so the viewer maps loopback resource identifiers there. Use a
-    /// full WebFinger URL when debugging a different local port.
-    pub const LOCAL_RESPONDER_PORT: u16 = 8787;
-
     /// Builds lookup policy from the request that served `/api/lookup`.
     ///
-    /// The request URL is the only configuration source on purpose. This Worker is meant to be a
-    /// reusable tool that can be deployed under different hostnames without editing repo-local env
-    /// files. Validate the behavior by changing only the request host: production-like hosts reject
-    /// off-origin targets, while loopback hosts allow arbitrary targets for local testing.
+    /// This uses default lookup configuration. Runtime adapters that load configuration should call
+    /// `from_viewer_url_and_config` instead.
     pub fn from_viewer_url(url: &Url) -> Self {
+        Self::from_viewer_url_and_config(url, &LookupConfig::default())
+    }
+
+    /// Builds lookup policy from the request that served `/api/lookup` and runtime-neutral config.
+    ///
+    /// The request URL still decides whether the viewer is local or production-like: production
+    /// hosts reject off-origin targets, while loopback hosts allow arbitrary targets for local
+    /// testing. The config supplies local development details such as the default responder port for
+    /// loopback `acct:` resources.
+    pub fn from_viewer_url_and_config(url: &Url, config: &LookupConfig) -> Self {
         let viewer_origin = Origin::from_url(url);
         let allow_off_origin_targets = viewer_origin.host_is_loopback();
         Self {
             viewer_origin,
             allow_off_origin_targets,
+            local_responder_port: config.local_responder_port,
         }
     }
 
-    /// Enforces the target fetch policy before the Worker performs an outbound request.
+    /// Enforces the target fetch policy before the runtime performs an outbound request.
     pub fn validate_target(&self, target_url: &Url) -> Result<(), LookupError> {
         let target_origin = Origin::from_url(target_url);
         if target_origin.same_origin(&self.viewer_origin) {
@@ -62,7 +65,7 @@ impl LookupPolicy {
         })
     }
 
-    /// Returns true when the viewer request came from a local Wrangler-style origin.
+    /// Returns true when the viewer request came from a loopback origin.
     ///
     /// This is intentionally derived from the request URL instead of a checked-in environment file.
     /// Local mode is more permissive because the developer is using a loopback-only viewer to debug
@@ -79,8 +82,8 @@ impl LookupPolicy {
     /// Builds the default local responder origin for an inferred loopback resource host.
     ///
     /// `acct:` resources cannot carry a port. When the viewer is local and the resource host is
-    /// loopback, derive an HTTP target on `LOCAL_RESPONDER_PORT` so `acct:alice@localhost` can
-    /// exercise the companion responder Worker during development.
+    /// loopback, derive an HTTP target on the configured local responder port so
+    /// `acct:alice@localhost` can exercise the companion responder during development.
     pub fn local_responder_origin_for_host(&self, host: &str) -> Option<String> {
         if !self.is_local_development() || !Self::host_is_loopback(host) {
             return None;
@@ -91,7 +94,7 @@ impl LookupPolicy {
         } else {
             host.to_string()
         };
-        Some(format!("http://{host}:{}", Self::LOCAL_RESPONDER_PORT))
+        Some(format!("http://{host}:{}", self.local_responder_port))
     }
 }
 
@@ -121,7 +124,7 @@ impl Origin {
         self.scheme == other.scheme && self.host == other.host && self.port == other.port
     }
 
-    /// Returns true for loopback hostnames used by local Wrangler development.
+    /// Returns true for loopback hostnames used by local development.
     ///
     /// The check intentionally covers the practical localhost spellings a developer can enter in
     /// the browser. It does not try to classify every private or special-purpose IP range because
@@ -173,6 +176,15 @@ mod tests {
     fn local_policy() -> LookupPolicy {
         LookupPolicy::from_viewer_url(
             &Url::parse("http://127.0.0.1:8788/webfinger/api/lookup").unwrap(),
+        )
+    }
+
+    fn local_policy_with_responder_port(port: u16) -> LookupPolicy {
+        LookupPolicy::from_viewer_url_and_config(
+            &Url::parse("http://127.0.0.1:8788/webfinger/api/lookup").unwrap(),
+            &LookupConfig {
+                local_responder_port: port,
+            },
         )
     }
 
@@ -234,6 +246,21 @@ mod tests {
     }
 
     #[test]
+    fn configured_local_responder_port_is_used_for_loopback_acct_resources() {
+        let request = LookupRequest::new(
+            "acct:alice@localhost".to_string(),
+            Vec::new(),
+            &local_policy_with_responder_port(8790),
+        )
+        .unwrap();
+
+        assert_eq!(
+            request.target_url().as_str(),
+            "http://localhost:8790/.well-known/webfinger?resource=acct%3Aalice%40localhost",
+        );
+    }
+
+    #[test]
     fn rejects_loopback_webfinger_url_from_public_viewer() {
         let error = LookupRequest::new(
             "http://127.0.0.1:8787/.well-known/webfinger?resource=acct%3Aalice%40localhost"
@@ -255,7 +282,7 @@ mod tests {
 
         assert_eq!(
             error.to_string(),
-            "this deployment only looks up WebFinger resources on joshka.net; use local Wrangler with a full localhost WebFinger URL for local server debugging",
+            "this deployment only looks up WebFinger resources on joshka.net; run the viewer locally with a full localhost WebFinger URL for local server debugging",
         );
     }
 }

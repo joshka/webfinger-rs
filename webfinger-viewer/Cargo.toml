@@ -1,0 +1,22 @@
+[package]
+name = "webfinger-viewer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "A WebFinger viewer and debugging UI."
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+readme = "README.md"
+keywords = ["webfinger", "viewer", "debug"]
+
+[dependencies]
+askama = "0.16.0"
+http.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+tracing.workspace = true
+url.workspace = true
+webfinger-rs.workspace = true
