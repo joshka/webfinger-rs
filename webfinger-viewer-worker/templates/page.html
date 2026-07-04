@@ -11,7 +11,7 @@
   <style>{{ app_css|safe }}</style>
 </head>
 <body>
-  <main>
+  <main hx-history-elt>
     <header class="app-header">
       <div class="brand">
         <h1>WebFinger Viewer</h1>
@@ -34,18 +34,19 @@
       <div class="query-panel">
         <form
           id="lookup-form"
-          hx-get="api/lookup"
+          hx-post="api/lookup"
           hx-indicator="#state-loading"
           hx-target="#results"
           hx-swap="outerHTML"
         >
-          {# app.js rewrites hx-get at runtime so the request lands below the current path prefix. #}
+          {# app.js rewrites hx-post at runtime so the request lands below the current path prefix. #}
           <label>
             <span>Resource or WebFinger URL</span>
             <input
               id="resource"
               name="resource"
               required
+              value="{{ form.resource }}"
               placeholder="acct:alice@example.com"
               spellcheck="false"
               autocomplete="off"
@@ -57,6 +58,7 @@
               <input
                 id="rels"
                 name="rel"
+                value="{{ form.rels }}"
                 placeholder="Optional: self, profile-page, issuer, or a rel URI"
                 spellcheck="false"
                 autocomplete="off"
@@ -64,15 +66,15 @@
             </label>
             <div class="rel-presets" aria-label="Relation presets">
               <label class="rel-preset">
-                <input type="checkbox" name="rel" value="self">
+                <input type="checkbox" name="rel" value="self"{% if form.self_checked %} checked{% endif %}>
                 self
               </label>
               <label class="rel-preset">
-                <input type="checkbox" name="rel" value="http://webfinger.net/rel/profile-page">
+                <input type="checkbox" name="rel" value="http://webfinger.net/rel/profile-page"{% if form.profile_checked %} checked{% endif %}>
                 profile
               </label>
               <label class="rel-preset">
-                <input type="checkbox" name="rel" value="http://openid.net/specs/connect/1.0/issuer">
+                <input type="checkbox" name="rel" value="http://openid.net/specs/connect/1.0/issuer"{% if form.issuer_checked %} checked{% endif %}>
                 issuer
               </label>
             </div>

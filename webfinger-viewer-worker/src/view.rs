@@ -14,6 +14,7 @@ mod state;
 mod summary;
 
 use askama::Template;
+use url::Url;
 
 use crate::lookup::{LookupError, LookupResult};
 use meta::MetaView;
@@ -32,11 +33,13 @@ const APP_JS: &str = include_str!("../assets/app.js");
 /// CSS, htmx, and the small local behavior script are separate source files but are embedded into
 /// the Worker response. That keeps deployment simple for a path-mounted Worker while avoiding a
 /// monolithic HTML source file.
-pub fn page() -> String {
+pub fn page(url: &Url) -> String {
+    let form = PageFormView::from_url(url);
     let page = PageTemplate {
         htmx_js: HTMX_JS,
         app_css: APP_CSS,
         app_js: APP_JS,
+        form,
     };
     page.render().expect("page template renders")
 }
@@ -85,6 +88,71 @@ struct PageTemplate {
 
     /// Small browser behavior script embedded into the page.
     app_js: &'static str,
+
+    /// Initial form values derived from the viewer URL query.
+    form: PageFormView,
+}
+
+/// Initial values for the lookup form in the full page shell.
+///
+/// Direct loads of `/webfinger?resource=...&rel=...` should make the form reflect the URL without
+/// running a lookup. User-triggered htmx submissions then own fetching and history pushes.
+struct PageFormView {
+    /// Initial resource text field value.
+    resource: String,
+
+    /// Custom relation values shown in the free-form text box.
+    rels: String,
+
+    /// True when the `self` preset should be checked.
+    self_checked: bool,
+
+    /// True when the profile-page preset should be checked.
+    profile_checked: bool,
+
+    /// True when the OpenID issuer preset should be checked.
+    issuer_checked: bool,
+}
+
+impl PageFormView {
+    /// Builds initial form values from a viewer URL.
+    ///
+    /// The relation parser mirrors the lookup parser's permissive input shape: repeated `rel`
+    /// parameters and comma/newline-separated text values are both accepted. Known presets become
+    /// checked boxes; everything else stays in the custom rel text box.
+    fn from_url(url: &Url) -> Self {
+        let resource = url
+            .query_pairs()
+            .find_map(|(key, value)| (key == "resource").then(|| value.into_owned()))
+            .unwrap_or_default();
+
+        let mut self_checked = false;
+        let mut profile_checked = false;
+        let mut issuer_checked = false;
+        let mut custom_rels = Vec::new();
+        for (key, value) in url.query_pairs() {
+            if key != "rel" {
+                continue;
+            }
+            for rel in value.split([',', '\n']).map(str::trim) {
+                match rel {
+                    "" => {}
+                    "self" => self_checked = true,
+                    "http://webfinger.net/rel/profile-page" => profile_checked = true,
+                    "http://openid.net/specs/connect/1.0/issuer" => issuer_checked = true,
+                    custom => custom_rels.push(custom.to_string()),
+                }
+            }
+        }
+
+        Self {
+            resource,
+            rels: custom_rels.join(", "),
+            self_checked,
+            profile_checked,
+            issuer_checked,
+        }
+    }
 }
 
 #[derive(Template)]
@@ -199,6 +267,20 @@ impl ErrorDiagnosticView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn page_hydrates_form_from_viewer_url_without_results() {
+        let url = Url::parse(
+            "https://example.com/webfinger?resource=acct%3Aalice%40example.com&rel=self&rel=https%3A%2F%2Fexample.com%2Frel%2Fcustom",
+        )
+        .unwrap();
+        let html = page(&url);
+
+        assert!(html.contains(r#"value="acct:alice@example.com""#));
+        assert!(html.contains(r#"value="https://example.com/rel/custom""#));
+        assert!(html.contains(r#"value="self" checked"#));
+        assert!(html.contains(r#"<div id="results" class="results" hidden></div>"#));
+    }
 
     #[test]
     fn lookup_error_keeps_header_short_and_body_specific() {
