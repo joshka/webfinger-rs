@@ -18,6 +18,7 @@
 //! resource's host.
 
 mod lookup;
+mod observability;
 mod server;
 mod view;
 
@@ -34,5 +35,6 @@ async fn fetch(
     env: ::worker::Env,
     ctx: ::worker::Context,
 ) -> ::worker::Result<::worker::Response> {
+    observability::init();
     server::serve(request, env, ctx).await
 }
