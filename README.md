@@ -37,6 +37,15 @@ Current integration targets:
 
 ## Repository tools
 
+This repository also contains a configurable WebFinger responder split across three crates:
+
+- [`webfinger-service`](webfinger-service/README.md) is the runtime-neutral core. It parses TOML
+  configuration, owns provider traits, and resolves exact WebFinger resources with `rel` filtering.
+- [`webfinger-service-axum`](webfinger-service-axum/README.md) is the native Axum server for local
+  development and non-Worker deployments.
+- [`webfinger-service-worker`](webfinger-service-worker/README.md) is the Cloudflare Worker
+  adapter. It reads TOML configuration from Workers KV and serves `/.well-known/webfinger`.
+
 This repository also contains `webfinger-viewer-worker`, a separate Rust Cloudflare Worker that
 serves a browser UI for inspecting WebFinger discovery behavior. It is a debugging tool, not the
 server-side WebFinger responder: the page accepts an `acct:` resource or full WebFinger URL, asks
@@ -160,6 +169,12 @@ async fn example() -> Result<(), Box<dyn std::error::Error>> {
 - Runnable example servers:
   `cargo run -p webfinger-rs --example axum --features axum`
   `cargo run -p webfinger-rs --example actix --features actix`
+- Deployable WebFinger service Worker:
+  [`webfinger-service-worker`](webfinger-service-worker/README.md)
+- Configurable native WebFinger service:
+  [`webfinger-service-axum`](webfinger-service-axum/README.md)
+- Runtime-neutral WebFinger service core:
+  [`webfinger-service`](webfinger-service/README.md)
 - Runnable example client:
   `cargo run -p webfinger-rs --example client --features reqwest`
 - CLI crate: [`webfinger-cli`](https://crates.io/crates/webfinger-cli)

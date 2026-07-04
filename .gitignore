@@ -2,3 +2,4 @@
 /node_modules
 /.wrangler
 /webfinger-viewer-worker/build
+/webfinger-service-worker/build

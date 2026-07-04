@@ -4,6 +4,7 @@
   ],
   "ignores": [
     "target/**",
+    "node_modules/**",
     ".jj/**",
     ".git/**"
   ],

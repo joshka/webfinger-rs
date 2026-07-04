@@ -1,0 +1,20 @@
+[[resources]]
+resource = "acct:alice@example.com"
+aliases = [
+  "https://social.example/@alice",
+  "https://social.example/users/alice",
+]
+
+[[resources.links]]
+rel = "self"
+type = "application/activity+json"
+href = "https://social.example/users/alice"
+
+[[resources.links]]
+rel = "http://webfinger.net/rel/profile-page"
+type = "text/html"
+href = "https://social.example/@alice"
+
+[[resources.links]]
+rel = "http://ostatus.org/schema/1.0/subscribe"
+template = "https://social.example/authorize_interaction?uri={uri}"
