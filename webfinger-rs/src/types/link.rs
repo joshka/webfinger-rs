@@ -420,6 +420,10 @@ mod tests {
     {
     }
 
+    /// Locks the expected trait surface for link data and builder values.
+    ///
+    /// Links are public JRD data, while builders often appear in tests before `.build()` is called;
+    /// both should stay ergonomic to clone, compare, sort, hash, and debug.
     #[test]
     fn implements_applicable_common_traits() {
         assert_data_traits::<Link>();
@@ -427,6 +431,10 @@ mod tests {
         assert_builder_traits::<LinkBuilder>();
     }
 
+    /// Serializes localized titles as the RFC JRD language-object shape.
+    ///
+    /// RFC 7033 section 4.4.4.4 defines `titles` as an object keyed by language tag, not as an
+    /// array of title entries.
     #[test]
     fn builder_serializes_titles_as_language_object() -> Result {
         let link = Link::builder("http://webfinger.net/rel/profile-page")
@@ -449,6 +457,10 @@ mod tests {
         Ok(())
     }
 
+    /// Serializes null link properties distinctly from absent properties.
+    ///
+    /// RFC 7033 allows property values to be `null`; callers use that to publish a known property
+    /// with no value rather than omitting the property key entirely.
     #[test]
     fn builder_serializes_template() -> Result {
         let link = Link::builder("http://ostatus.org/schema/1.0/subscribe")
@@ -488,9 +500,12 @@ mod tests {
 
     #[test]
     fn builder_serializes_null_properties() -> Result {
+        const OLD_ROLE_PROPERTY: &str = "https://example.com/ns/old-role";
+        const ROLE_PROPERTY: &str = "https://example.com/ns/role";
+
         let link = Link::builder("author")
-            .property("https://example.com/ns/role", "editor")
-            .null_property("https://example.com/ns/old-role")
+            .property(ROLE_PROPERTY, "editor")
+            .null_property(OLD_ROLE_PROPERTY)
             .build();
 
         let json = serde_json::to_value(link)?;
@@ -508,6 +523,132 @@ mod tests {
         Ok(())
     }
 
+    /// Keeps the direct constructor limited to the required relation member.
+    ///
+    /// Optional JRD link members should only appear when callers choose them through the builder or
+    /// direct struct construction, and the compact debug output should not print absent fields.
+    #[test]
+    fn new_sets_only_relation() {
+        let link = Link::new(Rel::new("avatar"));
+
+        assert_eq!(
+            link,
+            Link {
+                rel: Rel::new("avatar"),
+                r#type: None,
+                href: None,
+                template: None,
+                titles: None,
+                properties: None,
+            },
+        );
+    }
+
+    /// Omits absent optional fields from minimal link debug output.
+    #[test]
+    fn debug_omits_absent_optional_fields() {
+        let link = Link::new(Rel::new("avatar"));
+
+        assert_eq!(format!("{link:?}"), r#"Link { rel: Rel("avatar") }"#);
+    }
+
+    /// Covers the replacement-style builder methods that set whole optional objects at once.
+    ///
+    /// The one-at-a-time methods already have serialization coverage; this guards the bulk title
+    /// and property setters used when callers have pre-collected maps.
+    #[test]
+    fn builder_serializes_complete_title_and_property_maps() -> Result {
+        const LEGACY_PROPERTY: &str = "https://example.com/ns/legacy";
+        const ROLE_PROPERTY: &str = "https://example.com/ns/role";
+
+        let link = Link::builder("author")
+            .r#type("text/html")
+            .href("https://example.com/people/carol")
+            .titles([("en-us", "Carol"), ("fr", "Caroline")])
+            .properties([
+                (JrdUri::new(ROLE_PROPERTY), Some("editor".to_string())),
+                (JrdUri::new(LEGACY_PROPERTY), None),
+            ])
+            .build();
+
+        assert_eq!(
+            serde_json::to_value(link)?,
+            json!({
+                "rel": "author",
+                "type": "text/html",
+                "href": "https://example.com/people/carol",
+                "titles": {
+                    "en-us": "Carol",
+                    "fr": "Caroline"
+                },
+                "properties": {
+                    "https://example.com/ns/legacy": null,
+                    "https://example.com/ns/role": "editor"
+                }
+            })
+        );
+        Ok(())
+    }
+
+    /// Includes optional fields in debug output only when they are present.
+    ///
+    /// The custom debug formatter is meant to keep minimal links compact while still exposing
+    /// populated JRD members during test failures and logs.
+    #[test]
+    fn debug_includes_present_optional_fields() {
+        const ROLE_PROPERTY: &str = "https://example.com/ns/role";
+
+        let link = Link::builder("author")
+            .r#type("text/html")
+            .href("https://example.com/people/carol")
+            .title("en-us", "Carol")
+            .property(ROLE_PROPERTY, "editor")
+            .build();
+
+        assert_eq!(
+            format!("{link:?}"),
+            r#"Link { rel: Rel("author"), type: "text/html", href: JrdUri("https://example.com/people/carol"), titles: {"en-us": "Carol"}, properties: {JrdUri("https://example.com/ns/role"): Some("editor")} }"#
+        );
+    }
+
+    /// Keeps builder debug output recognizable while delegating field detail to `Link`.
+    ///
+    /// Builder values can appear in assertion failures before `.build()` is called, so their debug
+    /// shape should remain intentional rather than falling back to private field names.
+    #[test]
+    fn builder_debug_wraps_inner_link() {
+        let builder = Link::builder("author");
+
+        assert_eq!(
+            format!("{builder:?}"),
+            r#"LinkBuilder(Link { rel: Rel("author") })"#
+        );
+    }
+
+    /// Replaces a prior localized title with the same language key.
+    ///
+    /// JRD titles are an object keyed by language tag, so adding the same language twice should
+    /// behave like map insertion rather than producing a duplicate title entry.
+    #[test]
+    fn title_replaces_existing_language() {
+        let link = Link::builder("author")
+            .title("en-us", "Carol")
+            .title("en-us", "Carol Smith")
+            .build();
+
+        assert_eq!(
+            link.titles
+                .as_ref()
+                .and_then(|titles| titles.get("en-us"))
+                .map(String::as_str),
+            Some("Carol Smith")
+        );
+    }
+
+    /// Rejects array-shaped localized titles.
+    ///
+    /// This guards the RFC JRD object shape for `titles` rather than accepting a more generic
+    /// language/value list shape.
     #[test]
     fn deserialization_rejects_title_array_shape() {
         let json = r#"
@@ -527,6 +668,10 @@ mod tests {
         assert!(error.to_string().contains("invalid type"));
     }
 
+    /// Rejects relative URI property identifiers during link deserialization.
+    ///
+    /// Link property names are JRD URI strings, so accepting relative keys would create an invalid
+    /// typed `Link` from inbound JSON.
     #[test]
     fn deserialization_rejects_relative_property_identifiers() {
         let json = r#"

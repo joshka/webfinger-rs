@@ -19,7 +19,7 @@ struct Cli {
     verbosity: Verbosity<InfoLevel>,
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Args, PartialEq, Eq)]
 #[command(next_line_help = false)]
 struct FetchCommand {
     /// The resource to fetch
@@ -113,7 +113,6 @@ impl FetchCommand {
 mod tests {
     use super::*;
 
-    /// Builds a fetch command with only the resource set.
     fn command(resource: &str) -> FetchCommand {
         FetchCommand {
             resource: resource.to_string(),
@@ -153,6 +152,142 @@ mod tests {
         let host = command.host(&resource).unwrap();
 
         assert_eq!(host, "example.org");
+    }
+
+    /// Honors an explicit CLI host over any host that could be inferred from the resource.
+    ///
+    /// WebFinger deployments can serve an account domain from a different endpoint host, so the
+    /// caller-provided host must remain authoritative when present.
+    #[test]
+    fn host_uses_explicit_host() {
+        let mut command = command("acct:carol@example.org");
+        command.host = Some("webfinger.example.net".to_string());
+        let resource = command.resource().unwrap();
+
+        let host = command.host(&resource).unwrap();
+
+        assert_eq!(host, "webfinger.example.net");
+    }
+
+    /// Rejects host inference when neither an HTTP(S) authority nor an `acct:` authority is
+    /// available.
+    ///
+    /// RFC 7033 section 4.1 requires a concrete WebFinger endpoint host for the outgoing query.
+    /// Without an explicit CLI host, only hierarchical resource URIs and `acct:` account addresses
+    /// provide enough information to infer that endpoint.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1>.
+    /// See <https://www.rfc-editor.org/rfc/rfc7565.html#section-3>.
+    #[test]
+    fn host_rejects_resource_without_inferable_host() {
+        let command = command("mailto:carol");
+        let resource = command.resource().unwrap();
+
+        let error = command.host(&resource).expect_err("missing host");
+
+        assert_eq!(error.to_string(), "no host provided");
+    }
+
+    /// Parses all relation filters through the same validated `Rel` boundary used by the library.
+    ///
+    /// Repeated `--rel` options become repeated WebFinger `rel` query parameters, so their order is
+    /// observable in the generated request URI.
+    #[test]
+    fn link_relations_parse_in_order() {
+        let mut command = command("acct:carol@example.org");
+        command.rel = vec![
+            "http://webfinger.net/rel/profile-page".to_string(),
+            "avatar".to_string(),
+        ];
+
+        let rels = command.link_relations().unwrap();
+
+        assert_eq!(
+            rels.iter().map(Rel::as_ref).collect::<Vec<_>>(),
+            ["http://webfinger.net/rel/profile-page", "avatar"]
+        );
+    }
+
+    /// Rejects invalid CLI relation filters before a network request can be built.
+    ///
+    /// This keeps CLI validation consistent with response and request relation validation instead
+    /// of letting malformed relation strings reach the transport layer.
+    #[test]
+    fn link_relations_reject_invalid_rel() {
+        let mut command = command("acct:carol@example.org");
+        command.rel = vec!["profile page".to_string()];
+
+        let error = command.link_relations().expect_err("invalid rel");
+
+        assert!(error.to_string().contains("invalid relation type"));
+    }
+
+    /// Stops invalid resource text before the CLI constructs a WebFinger request.
+    ///
+    /// The command path should fail with local validation context, not with a later Reqwest URL or
+    /// transport error that hides the malformed resource.
+    #[tokio::test]
+    async fn execute_rejects_invalid_resource_before_network() {
+        let command = command("http:foo");
+
+        let error = command.execute().await.expect_err("invalid resource");
+
+        assert!(error.to_string().contains("invalid resource"));
+    }
+
+    /// Stops execution when the endpoint host cannot be explicit or inferred.
+    ///
+    /// This covers the full async command path for the same missing-host boundary tested directly
+    /// by `host_rejects_resource_without_inferable_host`.
+    #[tokio::test]
+    async fn execute_rejects_missing_host_before_network() {
+        let command = command("mailto:carol");
+
+        let error = command.execute().await.expect_err("missing host");
+
+        assert_eq!(error.to_string(), "no host provided");
+    }
+
+    /// Validates relation filters before initializing the HTTP client.
+    ///
+    /// A bad `--rel` value should be reported as command input failure even when the resource and
+    /// host are otherwise usable.
+    #[tokio::test]
+    async fn execute_rejects_invalid_relation_before_network() {
+        let mut command = command("acct:carol@example.org");
+        command.host = Some("example.org".to_string());
+        command.rel = vec!["profile page".to_string()];
+
+        let error = command.execute().await.expect_err("invalid rel");
+
+        assert!(error.to_string().contains("invalid relation type"));
+    }
+
+    /// Locks the positional CLI shape for resource, optional host, repeated rels, and TLS override.
+    ///
+    /// Clap derives this parser from struct field order and attributes, so a small parser refactor
+    /// can unintentionally change the public command line.
+    #[test]
+    fn cli_parses_resource_host_rel_and_insecure_flag() {
+        let cli = Cli::try_parse_from([
+            "webfinger",
+            "acct:carol@example.org",
+            "example.org",
+            "--rel",
+            "avatar",
+            "--insecure",
+        ])
+        .unwrap();
+
+        assert_eq!(
+            cli.fetch_command,
+            FetchCommand {
+                resource: "acct:carol@example.org".to_string(),
+                host: Some("example.org".to_string()),
+                rel: vec!["avatar".to_string()],
+                insecure: true,
+            }
+        );
     }
 
     /// Rejects non-hierarchical HTTP resource text before host inference.

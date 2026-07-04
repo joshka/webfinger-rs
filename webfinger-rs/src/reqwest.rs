@@ -6,6 +6,7 @@ use tracing::trace;
 use crate::error::Error;
 use crate::{WebFingerRequest, WebFingerResponse};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct EmptyBody;
 
 static DEFAULT_CRYPTO_PROVIDER: Once = Once::new();
@@ -234,9 +235,57 @@ impl async_convert::TryFrom<reqwest::Response> for WebFingerResponse {
 
 #[cfg(test)]
 mod tests {
+    use http::StatusCode;
+    use http::header::CONTENT_TYPE;
     use reqwest::Method;
 
     use super::*;
+
+    fn reqwest_response(status: StatusCode, body: &'static str) -> reqwest::Response {
+        http::Response::builder()
+            .status(status)
+            .header(CONTENT_TYPE, "application/jrd+json")
+            .body(body)
+            .unwrap()
+            .into()
+    }
+
+    /// Converts the typed request into the exact Reqwest method and URL shape sent on the wire.
+    ///
+    /// This is the low-level inspection path callers can use before execution, and it should match
+    /// the RFC 7033 query encoding used by the `http::Uri` conversion.
+    #[test]
+    fn try_into_reqwest_builds_get_request() {
+        let request = WebFingerRequest::builder("acct:carol@example.org")
+            .unwrap()
+            .host("example.org")
+            .rel("avatar")
+            .build();
+
+        let reqwest_request = request.try_into_reqwest().unwrap();
+
+        assert_eq!(reqwest_request.method(), Method::GET);
+        assert_eq!(
+            reqwest_request.url().as_str(),
+            "https://example.org/.well-known/webfinger?resource=acct%3Acarol%40example.org&rel=avatar",
+        );
+    }
+
+    /// Surfaces invalid endpoint hosts as request-construction failures.
+    ///
+    /// Host validation happens when the typed WebFinger request is lowered into an HTTP request, so
+    /// this guards the error variant callers see before any transport is involved.
+    #[test]
+    fn try_into_reqwest_rejects_invalid_host() {
+        let request = WebFingerRequest::builder("acct:carol@example.org")
+            .unwrap()
+            .host("exa mple.org")
+            .build();
+
+        let error = request.try_into_reqwest().expect_err("invalid host");
+
+        assert!(matches!(error, Error::Http(_)));
+    }
 
     /// RFC 7033 sections 4.2 and 9.1 require WebFinger clients to use HTTPS-only transport. The
     /// first-party client should reject an HTTP URL before attempting network I/O; the same Reqwest
@@ -253,5 +302,57 @@ mod tests {
 
         assert!(error.is_builder());
         assert_eq!(error.url().map(reqwest::Url::scheme), Some("http"));
+    }
+
+    /// Parses a successful HTTP response through the public response-conversion helper.
+    ///
+    /// Applications may execute requests themselves and still rely on this crate for JRD status
+    /// handling and JSON decoding, so the helper needs direct coverage independent of networking.
+    #[tokio::test]
+    async fn try_from_reqwest_parses_success_response() {
+        let body = r#"{"subject":"acct:carol@example.org","links":[{"rel":"avatar"}]}"#;
+        let response = reqwest_response(StatusCode::OK, body);
+
+        let response = WebFingerResponse::try_from_reqwest(response).await.unwrap();
+
+        assert_eq!(
+            response,
+            WebFingerResponse::builder("acct:carol@example.org")
+                .link(crate::Link::builder("avatar"))
+                .build()
+        );
+    }
+
+    /// Rejects non-success statuses before attempting to parse the JRD body.
+    ///
+    /// Reqwest owns HTTP status classification here, and callers should receive the same error
+    /// family for status failures as for other response-handling failures.
+    #[tokio::test]
+    async fn try_from_reqwest_rejects_error_status() {
+        let response = reqwest_response(
+            StatusCode::NOT_FOUND,
+            r#"{"subject":"acct:carol@example.org","links":[]}"#,
+        );
+
+        let error = WebFingerResponse::try_from_reqwest(response)
+            .await
+            .expect_err("error status");
+
+        assert!(matches!(error, Error::Reqwest(_)));
+    }
+
+    /// Rejects malformed JSON bodies after a successful status.
+    ///
+    /// This keeps the response conversion contract narrow: success requires both a successful HTTP
+    /// status and a valid WebFinger JRD JSON document.
+    #[tokio::test]
+    async fn try_from_reqwest_rejects_invalid_json() {
+        let response = reqwest_response(StatusCode::OK, "not json");
+
+        let error = WebFingerResponse::try_from_reqwest(response)
+            .await
+            .expect_err("invalid json");
+
+        assert!(matches!(error, Error::Reqwest(_)));
     }
 }

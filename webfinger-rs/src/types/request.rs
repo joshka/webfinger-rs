@@ -320,4 +320,61 @@ mod tests {
             "https://blog.example.com/.well-known/webfinger?resource=http%3A%2F%2Fblog.example.com%2Farticle%2Fid%2F314",
         );
     }
+
+    /// Keeps the low-level constructor intentionally minimal.
+    ///
+    /// `Request::new` accepts an already validated resource but does not infer a host or relation
+    /// filters; callers must opt into those pieces through the builder or direct field assignment.
+    #[test]
+    fn new_starts_with_resource_only() {
+        let resource = Resource::try_from("acct:carol@example.com").unwrap();
+
+        let request = Request::new(resource.clone());
+
+        assert_eq!(
+            request,
+            Request {
+                resource,
+                host: String::new(),
+                rels: Vec::new(),
+            }
+        );
+    }
+
+    /// Covers the ergonomic builder path used by docs and callers.
+    ///
+    /// The builder is the public API that translates string inputs into the typed request fields,
+    /// so it should preserve host text and repeated relation order exactly.
+    #[test]
+    fn builder_sets_host_and_rels() {
+        let request = Request::builder("acct:carol@example.com")
+            .unwrap()
+            .host("example.com")
+            .rel("http://webfinger.net/rel/profile-page")
+            .rel("avatar")
+            .build();
+
+        assert_eq!(
+            request,
+            Request {
+                host: "example.com".to_string(),
+                resource: Resource::try_from("acct:carol@example.com").unwrap(),
+                rels: vec![
+                    Rel::new("http://webfinger.net/rel/profile-page"),
+                    Rel::new("avatar"),
+                ],
+            }
+        );
+    }
+
+    /// Rejects relative resources at builder construction time.
+    ///
+    /// This keeps invalid input from being stored in a partially usable builder and matches the
+    /// stricter first-party extractor behavior for incoming WebFinger requests.
+    #[test]
+    fn builder_rejects_relative_resource() {
+        let error = Request::builder("/users/carol").expect_err("relative resource");
+
+        assert!(matches!(error, Error::InvalidResource(_)));
+    }
 }

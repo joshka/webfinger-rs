@@ -153,4 +153,28 @@ mod tests {
             "https://example.org/.well-known/webfinger?resource=acct%3Acarol%40example.org&rel=https%3A%2F%2Fexample.org%2Frel%2Fa%252Fb",
         );
     }
+
+    /// Builds protocol response headers for JRD JSON and cross-origin WebFinger reads.
+    ///
+    /// RFC 7033 section 10.2 registers `application/jrd+json` for WebFinger responses, and
+    /// section 5 recommends `Access-Control-Allow-Origin: *` so browser clients can read public
+    /// WebFinger data.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-5>.
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-10.2>.
+    #[test]
+    fn response_conversion_sets_jrd_and_cors_headers() {
+        let response = WebFingerResponse::new("acct:carol@example.org");
+
+        let response = http::Response::try_from(&response).unwrap();
+
+        assert_eq!(
+            response.headers().get("Content-Type"),
+            Some(&http::HeaderValue::from_static("application/jrd+json")),
+        );
+        assert_eq!(
+            response.headers().get("Access-Control-Allow-Origin"),
+            Some(&http::HeaderValue::from_static("*")),
+        );
+    }
 }

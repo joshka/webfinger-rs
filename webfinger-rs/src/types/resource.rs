@@ -32,6 +32,25 @@ pub enum ResourceError {
     MissingHttpAuthority,
 }
 
+// `http::uri::InvalidUri` does not implement `PartialEq` or `Eq`, so this cannot be derived.
+// See https://github.com/hyperium/http/issues/849.
+impl PartialEq for ResourceError {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::RelativeReference, Self::RelativeReference)
+            | (Self::InvalidCharacters, Self::InvalidCharacters)
+            | (Self::InvalidPercentEncoding, Self::InvalidPercentEncoding)
+            | (Self::MissingHttpAuthority, Self::MissingHttpAuthority) => true,
+            (Self::InvalidHttpUri(left), Self::InvalidHttpUri(right)) => {
+                left.to_string() == right.to_string()
+            }
+            _ => false,
+        }
+    }
+}
+
+impl Eq for ResourceError {}
+
 /// A WebFinger resource URI.
 ///
 /// RFC 7033 uses the `resource` query parameter for the query target, which is a URI rather than a
@@ -294,6 +313,9 @@ mod tests {
     }
 
     /// Accepts hierarchical HTTPS resources with an authority.
+    ///
+    /// Host extraction is used by the CLI fallback path, so this test covers both storage of the
+    /// original resource text and the derived host/URI accessors.
     #[test]
     fn accepts_https_resource() {
         let resource = "https://example.org/users/carol"
@@ -302,6 +324,22 @@ mod tests {
 
         assert_eq!(resource.as_str(), "https://example.org/users/carol");
         assert_eq!(resource.host(), Some("example.org"));
+        assert_eq!(
+            resource.uri().map(|uri| uri.to_string()),
+            Some("https://example.org/users/carol".to_string()),
+        );
+    }
+
+    /// Accepts owned resource text through the same validation path as parsed `&str` input.
+    ///
+    /// The owned conversion preserves the original text because downstream request encoding should
+    /// not normalize or otherwise rewrite caller-provided resource URIs.
+    #[test]
+    fn try_from_string_preserves_resource_text() {
+        let resource = Resource::try_from("acct:carol@example.com".to_string()).unwrap();
+
+        assert_eq!(resource.as_str(), "acct:carol@example.com");
+        assert_eq!(resource.to_string(), "acct:carol@example.com");
     }
 
     /// Accepts scheme-specific opaque-looking URIs.
@@ -318,15 +356,27 @@ mod tests {
     }
 
     /// Rejects relative references that `http::Uri` can otherwise parse.
+    ///
+    /// RFC 7033 section 4.1 defines `resource` as a URI identifying the target resource. RFC 3986
+    /// section 4.2 relative references are not enough because they have no standalone scheme.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1>.
+    /// See <https://www.rfc-editor.org/rfc/rfc3986.html#section-4.2>.
     #[test]
     fn rejects_relative_resource_references() {
-        for resource in ["carol", "/relative", "../x", ""] {
+        for resource in [
+            "carol",
+            "/relative",
+            "?resource=acct:carol@example.com",
+            "#fragment",
+            "../x",
+            "",
+            "1acct:carol@example.com",
+            "ac_ct:carol@example.org",
+        ] {
             let error = resource.parse::<Resource>().unwrap_err();
 
-            assert!(
-                matches!(error, ResourceError::RelativeReference),
-                "expected relative-resource error for {resource:?}, got {error:?}",
-            );
+            assert_eq!(error, ResourceError::RelativeReference);
         }
     }
 
@@ -338,10 +388,7 @@ mod tests {
     fn rejects_non_ascii_resource_text() {
         let error = "acct:carolé@example.org".parse::<Resource>().unwrap_err();
 
-        assert!(
-            matches!(error, ResourceError::InvalidCharacters),
-            "expected invalid-character error, got {error:?}",
-        );
+        assert_eq!(error, ResourceError::InvalidCharacters);
     }
 
     /// Rejects raw ASCII characters outside the RFC 3986 URI character set.
@@ -355,10 +402,7 @@ mod tests {
         ] {
             let error = resource.parse::<Resource>().unwrap_err();
 
-            assert!(
-                matches!(error, ResourceError::InvalidCharacters),
-                "expected invalid-character error for {resource:?}, got {error:?}",
-            );
+            assert_eq!(error, ResourceError::InvalidCharacters);
         }
     }
 
@@ -378,12 +422,15 @@ mod tests {
     /// decoded, so malformed escapes must be rejected at the resource boundary too.
     #[test]
     fn rejects_malformed_resource_percent_escape() {
-        let error = "acct:carol%GG@example.org".parse::<Resource>().unwrap_err();
+        for resource in [
+            "acct:carol%GG@example.org",
+            "acct:carol%@example.org",
+            "acct:carol%4@example.org",
+        ] {
+            let error = resource.parse::<Resource>().unwrap_err();
 
-        assert!(
-            matches!(error, ResourceError::InvalidPercentEncoding),
-            "expected invalid-percent-encoding error, got {error:?}",
-        );
+            assert_eq!(error, ResourceError::InvalidPercentEncoding);
+        }
     }
 
     /// Rejects HTTP and HTTPS resources that omit the required authority.
@@ -392,10 +439,7 @@ mod tests {
         for resource in ["http:foo", "https:foo", "http:/example.org/path"] {
             let error = resource.parse::<Resource>().unwrap_err();
 
-            assert!(
-                matches!(error, ResourceError::MissingHttpAuthority),
-                "expected missing-authority error for {resource:?}, got {error:?}",
-            );
+            assert_eq!(error, ResourceError::MissingHttpAuthority);
         }
     }
 
@@ -405,11 +449,13 @@ mod tests {
     /// hierarchical URI validation used for HTTP resources.
     #[test]
     fn rejects_invalid_https_authority_with_uppercase_scheme() {
-        let error = "HTTPS://[::1".parse::<Resource>().unwrap_err();
+        for resource in ["HTTPS://[::1", "https:///profile"] {
+            let error = resource.parse::<Resource>().unwrap_err();
 
-        assert!(
-            matches!(error, ResourceError::InvalidHttpUri(_)),
-            "expected invalid-authority error, got {error:?}",
-        );
+            assert!(
+                matches!(error, ResourceError::InvalidHttpUri(_)),
+                "expected invalid-authority error for {resource:?}, got {error:?}",
+            );
+        }
     }
 }

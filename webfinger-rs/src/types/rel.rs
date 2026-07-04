@@ -199,11 +199,19 @@ mod tests {
     {
     }
 
+    /// Locks the expected trait surface for a relation value type.
+    ///
+    /// Relations are stored in vectors and sets, serialized into JRD links, and compared by
+    /// servers applying relation filters, so common value traits should remain available.
     #[test]
     fn implements_applicable_common_traits() {
         assert_common_traits::<Rel>();
     }
 
+    /// Accepts URI relation types.
+    ///
+    /// RFC 5988 allows extension relation types as URI strings, which WebFinger commonly uses for
+    /// profile-page and other application-specific relations.
     #[test]
     fn accepts_uri_relation_types() {
         let rel = Rel::try_new("http://webfinger.net/rel/profile-page").unwrap();
@@ -211,6 +219,10 @@ mod tests {
         assert_eq!(rel.as_ref(), "http://webfinger.net/rel/profile-page");
     }
 
+    /// Accepts registered relation type names.
+    ///
+    /// RFC 5988 also allows registered relation names such as `author`; not every relation filter
+    /// needs to be a URI.
     #[test]
     fn accepts_registered_relation_types() {
         let rel = Rel::try_new("author").unwrap();
@@ -218,6 +230,9 @@ mod tests {
         assert_eq!(rel.as_ref(), "author");
     }
 
+    /// Accepts borrowed relation text through the standard fallible conversion trait.
+    ///
+    /// This keeps generic conversion code aligned with the explicit `Rel::try_new` constructor.
     #[test]
     fn try_from_parses_valid_relation_types() {
         let rel = Rel::try_from("author").unwrap();
@@ -225,6 +240,32 @@ mod tests {
         assert_eq!(rel.as_ref(), "author");
     }
 
+    /// Accepts owned relation text through the same validation path as borrowed relation text.
+    ///
+    /// CLI and configuration code commonly collect relation filters as `String`s, so this guards
+    /// the owned conversion used before request construction.
+    #[test]
+    fn try_from_string_parses_valid_relation_types() {
+        let rel = Rel::try_from("author".to_string()).unwrap();
+
+        assert_eq!(rel.as_ref(), "author");
+    }
+
+    /// Parses relation values through the standard string trait.
+    ///
+    /// This is the idiomatic API callers reach for when relation text comes from a config file or
+    /// request parameter rather than from builder literals.
+    #[test]
+    fn from_str_parses_valid_relation_types() {
+        let rel = "author".parse::<Rel>().unwrap();
+
+        assert_eq!(rel.as_ref(), "author");
+    }
+
+    /// Converts back into owned text without changing the relation value.
+    ///
+    /// Request construction and response serialization should preserve the relation token callers
+    /// supplied after validation.
     #[test]
     fn converts_back_into_owned_string() {
         let rel = Rel::new("author");
@@ -232,6 +273,10 @@ mod tests {
         assert_eq!(String::from(rel), "author");
     }
 
+    /// Supports borrowed lookup in sets keyed by `Rel`.
+    ///
+    /// Servers filtering responses by relation should not need to allocate a `Rel` just to check
+    /// whether a known relation is present.
     #[test]
     fn supports_borrowed_string_set_lookup() {
         let mut values = BTreeSet::new();
@@ -240,6 +285,10 @@ mod tests {
         assert!(values.contains("author"));
     }
 
+    /// Orders relation values by their serialized string form.
+    ///
+    /// This keeps ordered collections deterministic and aligned with the relation text that appears
+    /// in request and response payloads.
     #[test]
     fn orders_by_relation_string() {
         let first = Rel::new("author");
@@ -248,6 +297,9 @@ mod tests {
         assert!(first < second);
     }
 
+    /// Rejects empty relation values before request or response construction.
+    ///
+    /// Empty relation strings are neither registered relation names nor URI relation types.
     #[test]
     fn rejects_empty_relation_types() {
         let error = Rel::try_new("").expect_err("empty relation type");
@@ -255,6 +307,12 @@ mod tests {
         assert!(error.to_string().contains("invalid relation type"));
     }
 
+    /// Rejects a space-separated relation list in a single `rel` value.
+    ///
+    /// RFC 7033 section 4.4.4.1 says each link object has one relation type. Multiple relation
+    /// filters belong in repeated request `rel` parameters, not in one relation string.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.4.4.1>.
     #[test]
     fn rejects_multiple_relation_types_in_one_value() {
         let error = Rel::try_new("author avatar").expect_err("multiple relation types");
@@ -262,6 +320,14 @@ mod tests {
         assert!(error.to_string().contains("invalid relation type"));
     }
 
+    /// Rejects URI-shaped relation values unless they are absolute URIs.
+    ///
+    /// RFC 5988 section 5.3 allows extension relation types as URIs, and RFC 3986 section 4.3
+    /// defines the absolute-URI shape. A relative reference would not identify a globally scoped
+    /// relation type.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc5988.html#section-5.3>.
+    /// See <https://www.rfc-editor.org/rfc/rfc3986.html#section-4.3>.
     #[test]
     fn rejects_relative_uri_relation_types() {
         let error = Rel::try_new("/rel/profile-page").expect_err("relative URI relation type");
@@ -269,6 +335,9 @@ mod tests {
         assert!(error.to_string().contains("invalid relation type"));
     }
 
+    /// Rejects malformed percent escapes in URI-shaped relation values.
+    ///
+    /// Extension relation URIs still need to be valid absolute URI strings under RFC 3986.
     #[test]
     fn rejects_uri_relation_types_with_malformed_percent_escapes() {
         let error = Rel::try_new("http://example.com/a%GG").expect_err("malformed percent escape");
@@ -276,10 +345,28 @@ mod tests {
         assert!(error.to_string().contains("invalid relation type"));
     }
 
+    /// Applies relation validation when deserializing JSON link objects.
+    ///
+    /// Inbound JRD documents should not be able to bypass `Rel::try_new` through Serde.
     #[test]
     fn deserialization_rejects_invalid_relation_types() {
         let error = serde_json::from_str::<Rel>(r#""""#).expect_err("empty relation type");
 
         assert!(error.to_string().contains("invalid relation type"));
+    }
+
+    /// Rejects non-string JSON before relation syntax validation.
+    ///
+    /// Relation values are serialized as JSON strings; a numeric value is a shape error even if its
+    /// rendered text could otherwise look like a registered relation token.
+    #[test]
+    fn deserialization_rejects_non_string_values() {
+        let error = serde_json::from_str::<Rel>("42").expect_err("number");
+
+        assert!(
+            error
+                .to_string()
+                .contains("URI relation type or registered relation type")
+        );
     }
 }

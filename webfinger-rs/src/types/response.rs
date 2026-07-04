@@ -368,12 +368,21 @@ mod tests {
     {
     }
 
+    /// Locks the expected trait surface for response data and builder values.
+    ///
+    /// Responses are public JRD data used in maps, test assertions, serialization, and debug logs;
+    /// builders should also remain easy to clone and compare while constructing fixtures.
     #[test]
     fn implements_applicable_common_traits() {
         assert_data_traits::<Response>();
         assert_builder_traits::<Builder>();
     }
 
+    /// Deserializes a representative RFC-shaped JRD document.
+    ///
+    /// This covers the nested object shapes that are easy to accidentally model as simpler maps or
+    /// lists: response properties, link titles, link properties, and explicit `null` property
+    /// values.
     #[test]
     fn deserializes_rfc_shaped_jrd_with_null_properties_and_title_object() -> Result {
         let json = r#"
@@ -446,18 +455,27 @@ mod tests {
         Ok(())
     }
 
+    /// Serializes builder output into the RFC JRD object shape.
+    ///
+    /// This is the inverse of the deserialization coverage above: builders should produce the same
+    /// aliases, properties, link titles, link properties, and `null` values that inbound JRDs use.
     #[test]
     fn serializes_builder_output_as_rfc_shaped_jrd() -> Result {
+        const LEGACY_LINK_PROPERTY: &str = "https://example.com/ns/legacy";
+        const OLD_ROLE_PROPERTY: &str = "https://example.com/ns/old-role";
+        const ROLE_PROPERTY: &str = "https://example.com/ns/role";
+        const VERIFIED_PROPERTY: &str = "https://example.com/ns/verified";
+
         let response = Response::builder("acct:carol@example.com")
             .alias("https://example.com/profile/carol")
-            .property("https://example.com/ns/role", "developer")
-            .null_property("https://example.com/ns/old-role")
+            .property(ROLE_PROPERTY, "developer")
+            .null_property(OLD_ROLE_PROPERTY)
             .link(
                 Link::builder("http://webfinger.net/rel/profile-page")
                     .href("https://example.com/profile/carol")
                     .title("en-us", "Carol's Profile")
-                    .property("https://example.com/ns/verified", "true")
-                    .null_property("https://example.com/ns/legacy"),
+                    .property(VERIFIED_PROPERTY, "true")
+                    .null_property(LEGACY_LINK_PROPERTY),
             )
             .build();
 
@@ -490,6 +508,123 @@ mod tests {
         Ok(())
     }
 
+    /// Keeps the direct constructor focused on the required JRD subject.
+    ///
+    /// Optional members are intentionally absent until requested, while `links` remains an empty
+    /// array because response code can iterate links without handling a missing field.
+    #[test]
+    fn new_sets_required_subject_only() {
+        let response = Response::new("acct:carol@example.com");
+
+        assert_eq!(
+            response,
+            Response {
+                subject: JrdUri::new("acct:carol@example.com"),
+                aliases: None,
+                properties: None,
+                links: Vec::new(),
+            },
+        );
+    }
+
+    /// Serializes minimal responses with the required subject and an empty link array.
+    #[test]
+    fn new_serializes_required_subject_and_empty_links() -> Result {
+        let response = Response::new("acct:carol@example.com");
+
+        assert_eq!(
+            serde_json::to_value(&response)?,
+            json!({
+                "subject": "acct:carol@example.com",
+                "links": []
+            }),
+        );
+        Ok(())
+    }
+
+    /// Pretty-prints responses through the same JSON shape exposed to callers.
+    #[test]
+    fn display_pretty_prints_response_json() {
+        let response = Response::new("acct:carol@example.com");
+
+        assert_eq!(
+            response.to_string(),
+            "{\n  \"subject\": \"acct:carol@example.com\",\n  \"links\": []\n}"
+        );
+    }
+
+    /// Omits absent optional fields from minimal response debug output.
+    #[test]
+    fn debug_omits_absent_optional_fields() {
+        let response = Response::new("acct:carol@example.com");
+
+        assert_eq!(
+            format!("{response:?}"),
+            r#"Response { subject: JrdUri("acct:carol@example.com"), links: [] }"#
+        );
+    }
+
+    /// Rejects invalid subjects through the fallible builder path.
+    ///
+    /// `Response::builder` is intentionally convenient and panicking for trusted strings; this
+    /// fallible constructor is the API external input should use instead.
+    #[test]
+    fn try_builder_rejects_relative_subject() {
+        let error = Response::try_builder("/users/carol").expect_err("relative subject");
+
+        assert!(matches!(error, Error::InvalidJrdUri(uri) if uri == "/users/carol"));
+    }
+
+    /// Replaces the complete link array when callers already have a collected list.
+    ///
+    /// This distinguishes `links(...)` from `link(...)`, which appends one item at a time.
+    #[test]
+    fn links_replaces_existing_link_array() {
+        let response = Response::builder("acct:carol@example.com")
+            .link(Link::builder("author"))
+            .links(vec![Link::builder("avatar").build()])
+            .build();
+
+        assert_eq!(response.links, vec![Link::builder("avatar").build()]);
+    }
+
+    /// Includes optional response objects in debug output only when present.
+    ///
+    /// The custom debug formatter keeps minimal responses short, but populated responses should
+    /// still expose aliases and properties when a test or log captures the value.
+    #[test]
+    fn debug_includes_present_optional_fields() {
+        const ROLE_PROPERTY: &str = "https://example.com/ns/role";
+
+        let response = Response::builder("acct:carol@example.com")
+            .alias("https://example.com/people/carol")
+            .property(ROLE_PROPERTY, "admin")
+            .build();
+
+        assert_eq!(
+            format!("{response:?}"),
+            r#"Response { subject: JrdUri("acct:carol@example.com"), aliases: [JrdUri("https://example.com/people/carol")], properties: {JrdUri("https://example.com/ns/role"): Some("admin")}, links: [] }"#
+        );
+    }
+
+    /// Keeps builder debug output recognizable while delegating field detail to `Response`.
+    ///
+    /// Builder values can appear in assertion failures before `.build()` is called, so their debug
+    /// shape should remain intentional rather than exposing private field names.
+    #[test]
+    fn builder_debug_wraps_inner_response() {
+        let builder = Response::builder("acct:carol@example.com");
+
+        assert_eq!(
+            format!("{builder:?}"),
+            r#"Builder(Response { subject: JrdUri("acct:carol@example.com"), links: [] })"#
+        );
+    }
+
+    /// Rejects relative URI-valued fields in inbound JRD documents.
+    ///
+    /// Link `href` values are JRD URI strings, so relative references should fail during
+    /// deserialization instead of entering typed response data.
     #[test]
     fn rejects_relative_jrd_uris() {
         let json =
@@ -500,6 +635,10 @@ mod tests {
         assert!(error.to_string().contains("invalid JRD URI"));
     }
 
+    /// Rejects invalid relation values inside inbound JRD links.
+    ///
+    /// Response deserialization should enforce the same `Rel` boundary as builders and request
+    /// filters.
     #[test]
     fn rejects_empty_relation_types() {
         let json = r#"{"subject":"acct:carol@example.com","links":[{"rel":""}]}"#;
@@ -509,6 +648,10 @@ mod tests {
         assert!(error.to_string().contains("invalid relation type"));
     }
 
+    /// Defaults missing `links` to an empty collection.
+    ///
+    /// RFC-shaped JRDs can omit optional members; typed response code should still be able to
+    /// iterate links without handling `None`.
     #[test]
     fn deserializes_jrd_without_links() -> Result {
         let json = r#"{"subject":"acct:carol@example.com"}"#;
