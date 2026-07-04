@@ -262,11 +262,18 @@ mod tests {
     {
     }
 
+    /// Locks the expected trait surface for a URI value type.
+    ///
+    /// `JrdUri` appears in maps, serialized JRDs, debug output, and public builders, so missing
+    /// common traits would make otherwise ordinary caller code awkward.
     #[test]
     fn implements_applicable_common_traits() {
         assert_common_traits::<JrdUri>();
     }
 
+    /// Accepts absolute URI strings, including non-hierarchical URI schemes.
+    ///
+    /// JRD fields may use `acct:` and other absolute URI schemes, not only URLs with hosts.
     #[test]
     fn accepts_absolute_uri_strings() {
         let uri = JrdUri::try_new("acct:carol@example.com").unwrap();
@@ -274,6 +281,9 @@ mod tests {
         assert_eq!(uri.as_ref(), "acct:carol@example.com");
     }
 
+    /// Accepts borrowed URI text through the standard fallible conversion trait.
+    ///
+    /// Builder-like APIs can use `TryFrom<&str>` without depending on the inherent constructor.
     #[test]
     fn try_from_parses_valid_uri_strings() {
         let uri = JrdUri::try_from("acct:carol@example.com").unwrap();
@@ -281,6 +291,31 @@ mod tests {
         assert_eq!(uri.as_ref(), "acct:carol@example.com");
     }
 
+    /// Accepts owned URI text through the same validation path as borrowed URI text.
+    ///
+    /// Builders often receive owned configuration strings, so `TryFrom<String>` should not drift
+    /// from the `&str` implementation.
+    #[test]
+    fn try_from_string_parses_valid_uri_strings() {
+        let uri = JrdUri::try_from("acct:carol@example.com".to_string()).unwrap();
+
+        assert_eq!(uri.as_ref(), "acct:carol@example.com");
+    }
+
+    /// Parses and displays JRD URI values through the standard string traits.
+    ///
+    /// These impls are what callers get from `"..." .parse()` and `{uri}` formatting, so they
+    /// should stay aligned with the explicit constructors.
+    #[test]
+    fn standard_string_traits_use_inner_uri_text() {
+        let uri = "acct:carol@example.com".parse::<JrdUri>().unwrap();
+
+        assert_eq!(uri.to_string(), "acct:carol@example.com");
+    }
+
+    /// Converts back into owned text without normalizing the URI string.
+    ///
+    /// Serialized JRD values should preserve caller-provided URI text after validation.
     #[test]
     fn converts_back_into_owned_string() {
         let uri = JrdUri::new("acct:carol@example.com");
@@ -288,6 +323,10 @@ mod tests {
         assert_eq!(String::from(uri), "acct:carol@example.com");
     }
 
+    /// Supports borrowed lookup in maps keyed by `JrdUri`.
+    ///
+    /// Property maps are keyed by URI values, and callers should not need to allocate a `JrdUri`
+    /// just to look up a known property identifier.
     #[test]
     fn supports_borrowed_string_map_lookup() {
         let mut values = BTreeMap::new();
@@ -296,6 +335,9 @@ mod tests {
         assert_eq!(values.get("acct:carol@example.com"), Some(&"Carol"));
     }
 
+    /// Orders URI values by their serialized string form.
+    ///
+    /// This keeps map/set ordering deterministic and aligned with the text that appears in JSON.
     #[test]
     fn orders_by_uri_string() {
         let first = JrdUri::new("acct:alice@example.com");
@@ -304,6 +346,10 @@ mod tests {
         assert!(first < second);
     }
 
+    /// Rejects relative references before they can enter JRD URI-valued fields.
+    ///
+    /// RFC 7033's JRD URI members are absolute URI strings, so relative paths should fail at the
+    /// value boundary rather than during later serialization.
     #[test]
     fn rejects_relative_uri_references() {
         let error = JrdUri::try_new("/profile/carol").expect_err("relative URI");
@@ -311,6 +357,14 @@ mod tests {
         assert!(error.to_string().contains("invalid JRD URI"));
     }
 
+    /// Rejects text that does not start with an absolute URI scheme.
+    ///
+    /// RFC 7033 defines JRD URI-valued members as URI strings. RFC 3986 section 4.3 says an
+    /// absolute URI begins with a scheme followed by `:`, so account-like display text must not be
+    /// accepted as a JRD URI.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.4>.
+    /// See <https://www.rfc-editor.org/rfc/rfc3986.html#section-4.3>.
     #[test]
     fn rejects_non_uri_strings() {
         let error = JrdUri::try_new("carol@example.com").expect_err("non-URI string");
@@ -318,9 +372,18 @@ mod tests {
         assert!(error.to_string().contains("invalid JRD URI"));
     }
 
+    /// Rejects malformed percent escapes in URI-valued fields.
+    ///
+    /// RFC 3986 percent escapes must be complete hexadecimal byte escapes; accepting malformed
+    /// values would serialize invalid JRD URI strings.
     #[test]
     fn rejects_malformed_percent_escapes() {
-        for uri in ["https://example.org/a%GG", "acct:carol%GG@example.com"] {
+        for uri in [
+            "https://example.org/a%GG",
+            "acct:carol%GG@example.com",
+            "https://example.org/a%",
+            "https://example.org/a%4",
+        ] {
             let error = JrdUri::try_new(uri).expect_err("malformed percent escape");
 
             assert!(
@@ -330,11 +393,25 @@ mod tests {
         }
     }
 
+    /// Applies the same absolute-URI validation when deserializing JSON.
+    ///
+    /// This prevents inbound JRD documents from bypassing `JrdUri::try_new` by using Serde.
     #[test]
     fn deserialization_rejects_relative_uri_references() {
         let error =
             serde_json::from_str::<JrdUri>(r#""/profile/carol""#).expect_err("relative URI");
 
         assert!(error.to_string().contains("invalid JRD URI"));
+    }
+
+    /// Rejects non-string JSON before URI syntax validation.
+    ///
+    /// JRD URI fields are JSON strings, so this guards the Serde visitor's type expectation rather
+    /// than the URI parser itself.
+    #[test]
+    fn deserialization_rejects_non_string_values() {
+        let error = serde_json::from_str::<JrdUri>("42").expect_err("number");
+
+        assert!(error.to_string().contains("absolute URI string"));
     }
 }

@@ -103,7 +103,7 @@ fn validate_percent_escapes(value: &str) -> Result<(), RequestParamsError> {
 }
 
 /// Errors that can occur while parsing WebFinger query parameters.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub(crate) enum RequestParamsError {
     /// The required `resource` parameter is missing.
     #[error("missing resource parameter")]
@@ -119,18 +119,13 @@ pub(crate) enum RequestParamsError {
 
     /// The required `resource` parameter is not an absolute URI.
     #[error("invalid resource: {0}")]
-    InvalidResource(ResourceError),
-}
-
-impl From<ResourceError> for RequestParamsError {
-    fn from(error: ResourceError) -> Self {
-        Self::InvalidResource(error)
-    }
+    InvalidResource(#[from] ResourceError),
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::error::Error;
 
     /// Decodes a percent-encoded `acct:` resource.
     ///
@@ -208,10 +203,7 @@ mod tests {
         const QUERY: &str = "resource=acct%3Acarol%40example.org&rel=%FF";
         let error = QUERY.parse::<RequestParams>().unwrap_err();
 
-        assert!(
-            matches!(error, RequestParamsError::InvalidPercentEncoding),
-            "expected invalid-percent-encoding error, got {error:?}",
-        );
+        assert_eq!(error, RequestParamsError::InvalidPercentEncoding);
     }
 
     /// Rejects malformed percent escape syntax.
@@ -226,10 +218,27 @@ mod tests {
         const QUERY: &str = "resource=acct%3Acarol%40example.org&rel=%GG";
         let error = QUERY.parse::<RequestParams>().unwrap_err();
 
-        assert!(
-            matches!(error, RequestParamsError::InvalidPercentEncoding),
-            "expected invalid-percent-encoding error, got {error:?}",
-        );
+        assert_eq!(error, RequestParamsError::InvalidPercentEncoding);
+    }
+
+    /// Rejects incomplete escapes in parameter keys and values.
+    ///
+    /// Query keys still use RFC 3986 percent encoding. A malformed key cannot be safely ignored
+    /// because it may be a misspelled or corrupted `resource` parameter.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc3986.html#section-2.1>.
+    #[test]
+    fn rejects_incomplete_percent_escape_syntax() {
+        for query in [
+            "resource%=acct%3Acarol%40example.org",
+            "resource%4=acct%3Acarol%40example.org",
+            "resource=acct%3Acarol%40example.org%",
+            "resource=acct%3Acarol%40example.org%4",
+        ] {
+            let error = query.parse::<RequestParams>().unwrap_err();
+
+            assert_eq!(error, RequestParamsError::InvalidPercentEncoding);
+        }
     }
 
     /// Accepts `resource` in any query parameter position.
@@ -249,6 +258,27 @@ mod tests {
             RequestParams {
                 resource: "acct:carol@example.org".parse().unwrap(),
                 rel: vec!["profile".to_string()],
+            },
+        );
+    }
+
+    /// Ignores unknown query parameters while preserving the required WebFinger fields.
+    ///
+    /// RFC 7033 defines `resource` and `rel`; ignoring additional parameters keeps adapters
+    /// forwards-compatible without letting extensions alter the parsed request target.
+    ///
+    /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.1>.
+    #[test]
+    fn ignores_unknown_query_params() {
+        let query: RequestParams = "resource=acct%3Acarol%40example.org&foo=bar&rel=avatar"
+            .parse()
+            .unwrap();
+
+        assert_eq!(
+            query,
+            RequestParams {
+                resource: "acct:carol@example.org".parse().unwrap(),
+                rel: vec!["avatar".to_string()],
             },
         );
     }
@@ -327,10 +357,7 @@ mod tests {
             "resource=acct%3Acarol%40example.org&resource=acct%3Aalice%40example.org";
         let error = QUERY.parse::<RequestParams>().unwrap_err();
 
-        assert!(
-            matches!(error, RequestParamsError::MultipleResources),
-            "expected multiple-resources error, got {error:?}",
-        );
+        assert_eq!(error, RequestParamsError::MultipleResources);
     }
 
     /// Rejects requests that omit the required `resource` parameter.
@@ -344,10 +371,7 @@ mod tests {
     fn rejects_missing_resource_param() {
         let error = "rel=profile".parse::<RequestParams>().unwrap_err();
 
-        assert!(
-            matches!(error, RequestParamsError::MissingResource),
-            "expected missing-resource error, got {error:?}",
-        );
+        assert_eq!(error, RequestParamsError::MissingResource);
     }
 
     /// Rejects relative references in the `resource` parameter.
@@ -368,13 +392,24 @@ mod tests {
         ] {
             let error = query.parse::<RequestParams>().unwrap_err();
 
-            assert!(
-                matches!(
-                    error,
-                    RequestParamsError::InvalidResource(ResourceError::RelativeReference)
-                ),
-                "expected relative-resource error, got {error:?}",
+            assert_eq!(
+                error,
+                RequestParamsError::InvalidResource(ResourceError::RelativeReference)
             );
         }
+    }
+
+    /// Exposes the resource parse error as the source of invalid-resource query failures.
+    ///
+    /// Adapters render all malformed queries as bad requests, but preserving the source keeps
+    /// logs and direct error handling specific enough to explain what was invalid.
+    #[test]
+    fn invalid_resource_error_exposes_source_error() {
+        let error = "resource=/relative".parse::<RequestParams>().unwrap_err();
+
+        assert_eq!(
+            error.source().map(ToString::to_string),
+            Some("resource must be an absolute URI".to_string())
+        );
     }
 }

@@ -136,18 +136,22 @@ impl IntoResponse for WebFingerResponse {
 /// - [`Rejection::InvalidQueryString`] when the query string is missing `resource`, contains more
 ///   than one `resource`, or contains malformed percent encoding;
 /// - [`Rejection::InvalidResource`] when the `resource` value is not an absolute URI.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Rejection {
     /// The WebFinger query string is missing required data or is malformed.
+    #[error("{0}")]
     InvalidQueryString(String),
 
     /// The `resource` query parameter is not an absolute URI.
-    InvalidResource(ResourceError),
+    #[error("invalid resource: {0}")]
+    InvalidResource(#[source] ResourceError),
 
     /// The `Host` header is missing.
+    #[error("missing host")]
     MissingHost,
 
     /// A `rel` query parameter is invalid.
+    #[error(transparent)]
     InvalidRel(crate::Error),
 }
 
@@ -251,6 +255,8 @@ impl<S: Send + Sync> FromRequestParts<S> for WebFingerRequest {
 
 #[cfg(test)]
 mod tests {
+    use std::error::Error;
+
     use axum::body::Body;
     use axum::routing::get;
     use http::{Method, Request, Response};
@@ -261,6 +267,35 @@ mod tests {
     use crate::WELL_KNOWN_PATH;
 
     type Result<T = (), E = Box<dyn std::error::Error>> = std::result::Result<T, E>;
+
+    fn assert_error_traits<T>()
+    where
+        T: std::fmt::Debug + std::fmt::Display + std::error::Error + Send + Sync + 'static,
+    {
+    }
+
+    /// Keeps Axum extraction failures usable as ordinary application errors.
+    ///
+    /// `Rejection` is public, so callers should be able to log it, display it, and inspect sources
+    /// without first converting it into an HTTP response.
+    #[test]
+    fn rejection_implements_error_traits() {
+        assert_error_traits::<Rejection>();
+    }
+
+    /// Preserves the underlying resource parse error for diagnostics.
+    ///
+    /// Axum renders a flat `400 Bad Request`, but applications that handle `Rejection` directly
+    /// should still be able to distinguish a relative resource from other query failures.
+    #[test]
+    fn invalid_resource_rejection_exposes_source_error() {
+        let rejection = Rejection::InvalidResource(ResourceError::RelativeReference);
+
+        assert_eq!(
+            rejection.source().map(ToString::to_string),
+            Some("resource must be an absolute URI".to_string())
+        );
+    }
 
     /// A small helper trait to convert a response body into a string.
     trait IntoText {
