@@ -45,7 +45,7 @@ serde = { version = "1.0.220", default-features = false, features = ["derive", "
 serde_json = { version = "1.0.140", default-features = false, features = ["std"] }
 serde_with = { version = "3", default-features = false, features = ["macros", "std"] }
 thiserror = { version = "2", default-features = false, features = ["std"] }
-toml = { version = "0.9", default-features = false, features = ["parse", "serde", "std"] }
+toml = { version = "1.1", default-features = false, features = ["parse", "serde", "std"] }
 tokio = { version = "1.41", default-features = false }
 tower = "0.5.2"
 tower-http = { version = "0.7.0" }
