@@ -41,11 +41,11 @@ percent-encoding = { version = "2.3.1", default-features = false }
 rcgen = "0.14"
 reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"] }
 rustls = "0.23.27"
-serde = { version = "1.0.220", default-features = false, features = ["derive", "std"] }
+serde = { version = "1.0.225", default-features = false, features = ["derive", "std"] }
 serde_json = { version = "1.0.140", default-features = false, features = ["std"] }
 serde_with = { version = "3", default-features = false, features = ["macros", "std"] }
 thiserror = { version = "2", default-features = false, features = ["std"] }
-toml = { version = "0.9", default-features = false, features = ["parse", "serde", "std"] }
+toml = { version = "1.1", default-features = false, features = ["parse", "serde", "std"] }
 tokio = { version = "1.41", default-features = false }
 tower = "0.5.2"
 tower-http = { version = "0.7.0" }
