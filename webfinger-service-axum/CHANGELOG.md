@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.35](https://github.com/joshka/webfinger-rs/compare/webfinger-service-axum-v0.0.34...webfinger-service-axum-v0.0.35) - 2026-07-14
+
+### Other
+
+- release v0.0.34 ([#198](https://github.com/joshka/webfinger-rs/pull/198))
+- release v0.0.33 ([#193](https://github.com/joshka/webfinger-rs/pull/193))
+- Add Cloudflare WebFinger worker ([#195](https://github.com/joshka/webfinger-rs/pull/195))
+
 ## [0.0.34](https://github.com/joshka/webfinger-rs/compare/webfinger-service-axum-v0.0.33...webfinger-service-axum-v0.0.34) - 2026-07-04
 
 ### Other
