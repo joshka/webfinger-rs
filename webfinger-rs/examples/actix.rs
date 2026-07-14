@@ -70,7 +70,7 @@ async fn webfinger(request: WebFingerRequest) -> actix_web::Result<WebFingerResp
     let subject = request.resource.to_string();
     if subject != SUBJECT {
         let message = format!("{subject} does not exist");
-        return Err(actix_web::error::ErrorNotFound(message))?;
+        Err(actix_web::error::ErrorNotFound(message))?;
     }
     let mut links = Vec::new();
 
