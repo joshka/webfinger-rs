@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.36](https://github.com/joshka/webfinger-rs/compare/webfinger-cli-v0.0.35...webfinger-cli-v0.0.36) - 2026-07-25
+
+### Other
+
+- update Cargo.lock dependencies
+
 ## [0.0.35](https://github.com/joshka/webfinger-rs/compare/webfinger-cli-v0.0.34...webfinger-cli-v0.0.35) - 2026-07-14
 
 ### Other
