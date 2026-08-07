@@ -14,7 +14,7 @@
     "dev:viewer": "wrangler dev --config wrangler.viewer.toml"
   },
   "devDependencies": {
-    "wrangler": "^4.107.0"
+    "wrangler": "^4.118.0"
   },
   "dependencies": {
     "htmx.org": "2.0.10"
