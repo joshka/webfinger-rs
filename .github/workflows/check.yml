@@ -47,7 +47,7 @@ jobs:
           toolchain: stable
           components: clippy
       - name: Cache Cargo dependencies
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16
       - name: Run clippy
         run: cargo clippy --all-targets --all-features --workspace -- -D warnings
 
@@ -64,7 +64,7 @@ jobs:
         with:
           toolchain: stable
       - name: Cache Cargo dependencies
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16
       - name: Test workspace
         run: cargo test --workspace --all-features
       - name: Test docs
@@ -89,7 +89,7 @@ jobs:
         with:
           toolchain: stable
       - name: Cache Cargo dependencies
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16
       - name: Test workspace
         run: cargo test --locked --all-features --all-targets
 
@@ -106,7 +106,7 @@ jobs:
         with:
           toolchain: stable
       - name: Cache Cargo dependencies
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16
       - name: Check workspace
         run: cargo check --all-targets --all-features --workspace
 
@@ -125,7 +125,7 @@ jobs:
         with:
           toolchain: nightly
       - name: Cache Cargo dependencies
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16
       - name: Build docs
         run: cargo doc --all-features --workspace --no-deps
 
@@ -142,7 +142,7 @@ jobs:
         with:
           toolchain: 1.88.0
       - name: Cache Cargo dependencies
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16
       - name: Check workspace
         run: cargo check --workspace
 
@@ -167,7 +167,7 @@ jobs:
         with:
           tool: cargo-hack
       - name: Cache Cargo dependencies
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16
       - name: Check direct minimal versions
         run: cargo minimal-versions check --direct --workspace --all-features --all-targets
 
@@ -268,7 +268,7 @@ jobs:
         with:
           tool: cargo-llvm-cov
       - name: Cache Cargo dependencies
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16
       - name: Generate coverage
         run: cargo llvm-cov --locked --all-features --lcov --output-path lcov.info
       - name: Record Rust version
