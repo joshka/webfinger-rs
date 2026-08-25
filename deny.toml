@@ -1,6 +1,12 @@
 [advisories]
 version = 2
-ignore = []
+ignore = [
+    # Actix Web 4.15.0 still brings h2 0.3.27 for the TLS-enabled example.
+    # Upstream tracks the compatible h2 update separately; the other h2 branch
+    # is kept on the patched 0.4 release in Cargo.lock.
+    # https://github.com/actix/actix-web/commit/22a0760b61fdf99fc3b0b98f6f134b2fda484696
+    "RUSTSEC-2026-0258",
+]
 
 [licenses]
 version = 2

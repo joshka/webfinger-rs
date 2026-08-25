@@ -15,7 +15,7 @@ const SUBJECT: &str = "acct:carol@localhost";
 
 static DEFAULT_CRYPTO_PROVIDER: Once = Once::new();
 
-type TestResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+type TestResult<T = ()> = Result<T, Box<dyn std::error::Error>>;
 
 struct TestServer {
     addr: SocketAddr,
@@ -63,9 +63,11 @@ async fn https_webfinger_server() -> TestResult<TestServer> {
     Ok(TestServer { addr, client, task })
 }
 
-async fn webfinger(request: WebFingerRequest) -> axum::response::Result<WebFingerResponse> {
+async fn webfinger(
+    request: WebFingerRequest,
+) -> Result<WebFingerResponse, (StatusCode, &'static str)> {
     if request.resource.as_ref() != SUBJECT {
-        return Err((StatusCode::NOT_FOUND, "not found").into());
+        return Err((StatusCode::NOT_FOUND, "not found"));
     }
 
     let profile_rel = Rel::new(PROFILE_PAGE_REL);
