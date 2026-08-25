@@ -3,7 +3,6 @@ use std::net::{Ipv4Addr, SocketAddr};
 use axum::Router;
 use axum::routing::get;
 use axum_server::tls_rustls::RustlsConfig;
-use color_eyre::Result;
 use color_eyre::eyre::Context;
 use http::StatusCode;
 use tower_http::trace::TraceLayer;
@@ -20,7 +19,7 @@ const ROLE_PROPERTY: &str = "https://example.com/ns/account-role";
 const SUBJECT: &str = "acct:carol@localhost";
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
     tracing_subscriber::fmt()
         .with_max_level(LevelFilter::DEBUG)
@@ -58,7 +57,7 @@ async fn main() -> Result<()> {
 }
 
 /// Generate a self-signed certificate for localhost
-async fn tls_config() -> Result<RustlsConfig> {
+async fn tls_config() -> color_eyre::Result<RustlsConfig> {
     let self_signed_cert = rcgen::generate_simple_self_signed(vec!["localhost".to_string()])
         .wrap_err("failed to generate self signed certificate for localhost")?;
     let cert = self_signed_cert.cert.der().to_vec();
@@ -68,12 +67,12 @@ async fn tls_config() -> Result<RustlsConfig> {
         .wrap_err("failed to create tls config")
 }
 
-async fn webfinger(request: WebFingerRequest) -> axum::response::Result<WebFingerResponse> {
+async fn webfinger(request: WebFingerRequest) -> Result<WebFingerResponse, (StatusCode, String)> {
     info!("fetching webfinger resource: {:?}", request);
     let subject = request.resource.to_string();
     if subject != SUBJECT {
         let message = format!("{subject} does not exist");
-        return Err((StatusCode::NOT_FOUND, message).into());
+        return Err((StatusCode::NOT_FOUND, message));
     }
     let mut links = Vec::new();
 
