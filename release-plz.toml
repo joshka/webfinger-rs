@@ -9,7 +9,9 @@ changelog_config = "release-cliff.toml"
 [[package]]
 name = "webfinger-service-worker"
 release = false
+publish = false
 
 [[package]]
 name = "webfinger-viewer-worker"
 release = false
+publish = false
