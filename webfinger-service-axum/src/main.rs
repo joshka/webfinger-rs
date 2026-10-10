@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 
 use clap::Parser;
 
-const DEFAULT_CONFIG_FILE: &str = "webfinger-service/webfinger.toml";
-const EXAMPLE_CONFIG_FILE: &str = "webfinger-service/webfinger.example.toml";
+const DEFAULT_CONFIG: &str = "bundled defaults";
+const EXAMPLE_CONFIG: &str = "bundled example";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -20,8 +20,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .try_init();
 
     let args = Args::parse();
-    let config_path = args.config_path();
-    let config = read_config(config_path)?;
+    let config_source = args.config_source();
+    let config = args.load_config()?;
     let provider = StaticConfigProvider::from_toml(&config)?;
 
     let addr: SocketAddr = format!("{}:{}", args.host, args.port).parse()?;
@@ -31,9 +31,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     eprintln!(
         "serving webfinger service at http://{addr}/.well-known/webfinger using {}",
-        config_path.display()
+        config_source
     );
-    info!(%addr, config = %config_path.display(), "serving webfinger service");
+    info!(%addr, config = %config_source, "serving webfinger service");
     axum::serve(listener, axum_router(provider)).await?;
     Ok(())
 }
@@ -42,16 +42,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[command(author, version, about)]
 struct Args {
     /// Configuration TOML file to serve.
-    #[arg(
-        long,
-        env = "WEBFINGER_CONFIG_FILE",
-        value_name = "PATH",
-        default_value = DEFAULT_CONFIG_FILE
-    )]
-    config: PathBuf,
+    #[arg(long, env = "WEBFINGER_CONFIG_FILE", value_name = "PATH")]
+    config: Option<PathBuf>,
 
     /// Serve the bundled example configuration instead of the default empty config.
-    #[arg(long)]
+    #[arg(long, conflicts_with = "config")]
     example_config: bool,
 
     /// Host address to bind.
@@ -64,11 +59,23 @@ struct Args {
 }
 
 impl Args {
-    fn config_path(&self) -> &Path {
+    fn config_source(&self) -> String {
         if self.example_config {
-            Path::new(EXAMPLE_CONFIG_FILE)
+            EXAMPLE_CONFIG.to_string()
+        } else if let Some(path) = &self.config {
+            path.display().to_string()
         } else {
-            &self.config
+            DEFAULT_CONFIG.to_string()
+        }
+    }
+
+    fn load_config(&self) -> Result<String, CliError> {
+        if self.example_config {
+            Ok(webfinger_service::EXAMPLE_CONFIG.to_string())
+        } else if let Some(path) = &self.config {
+            read_config(path)
+        } else {
+            Ok("resources = []".to_string())
         }
     }
 }
@@ -134,22 +141,32 @@ mod tests {
     }
 
     #[test]
-    fn empty_default_config_parses() {
-        webfinger_service::StaticConfigProvider::from_toml(include_str!(
-            "../../webfinger-service/webfinger.toml"
-        ))
-        .unwrap();
+    fn explicit_config_conflicts_with_example() {
+        let error =
+            Args::try_parse_from(["webfinger", "--config", "config.toml", "--example-config"])
+                .unwrap_err();
+        assert_eq!(error.kind(), clap::error::ErrorKind::ArgumentConflict);
     }
 
     #[test]
-    fn example_config_flag_selects_example_file() {
+    fn no_config_uses_bundled_defaults() {
+        let args = Args::try_parse_from(["webfinger"]).unwrap();
+        assert_eq!(args.config_source(), DEFAULT_CONFIG);
+        let config = args.load_config().unwrap();
+        webfinger_service::StaticConfigProvider::from_toml(&config).unwrap();
+        assert_eq!(config, "resources = []");
+    }
+
+    #[test]
+    fn example_config_flag_loads_bundled_example() {
         let args = Args {
-            config: DEFAULT_CONFIG_FILE.into(),
+            config: None,
             example_config: true,
             host: "127.0.0.1".to_string(),
             port: 8788,
         };
 
-        assert_eq!(args.config_path(), Path::new(EXAMPLE_CONFIG_FILE));
+        assert_eq!(args.config_source(), EXAMPLE_CONFIG);
+        args.load_config().unwrap();
     }
 }

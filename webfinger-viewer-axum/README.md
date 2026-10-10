@@ -7,6 +7,17 @@ Tokio startup, Tower HTTP tracing, and native logging.
 The shared route policy, lookup validation, htmx response behavior, Askama templates, and assets
 live in [`webfinger-viewer`](../webfinger-viewer/README.md).
 
+## Install
+
+```console
+cargo install webfinger-viewer-axum --version 0.1.0 --locked
+webfinger-viewer-axum
+```
+
+The first crates.io release is pending. Until then, install from this checkout with
+`cargo install --path webfinger-viewer-axum --locked`. The installed binary runs from any directory;
+it uses bundled defaults and requires no repository files.
+
 ## Local Development
 
 Run the viewer as a native Axum server:
@@ -21,7 +32,7 @@ Then open `http://127.0.0.1:8788/webfinger`. Set `PORT` to choose a different lo
 PORT=8791 cargo run -p webfinger-viewer-axum
 ```
 
-By default this reads `webfinger-viewer/viewer.toml`. The CLI also accepts explicit flags:
+By default this uses bundled configuration. The CLI also accepts explicit flags:
 
 ```console
 cargo run -p webfinger-viewer-axum -- --host 127.0.0.1 --port 8791
@@ -38,14 +49,19 @@ WEBFINGER_VIEWER_CONFIG_FILE=webfinger-viewer/viewer.example.toml \
   cargo run -p webfinger-viewer-axum
 ```
 
+`--config` and `--example-config` are mutually exclusive, including config supplied by an
+environment variable. Explicit config paths are relative to the current directory. Missing or
+invalid files cause startup to fail rather than silently falling back to defaults.
+
 Useful options:
 
 - `--config <PATH>` or `WEBFINGER_VIEWER_CONFIG_FILE` chooses a TOML config file.
-- `--example-config` uses `webfinger-viewer/viewer.example.toml`.
+- `--example-config` uses the bundled example viewer configuration.
 - `--host <HOST>` or `HOST` chooses the bind host.
 - `--port <PORT>` or `PORT` chooses the bind port.
 
-Config file values are the base defaults; environment variables and CLI flags override bind
+Bundled or explicitly selected config values are the base defaults; environment variables and CLI
+flags override bind
 settings. The shared `[lookup]` settings still come from the selected config file.
 
 Default config:

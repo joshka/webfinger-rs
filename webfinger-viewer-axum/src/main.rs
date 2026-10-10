@@ -18,9 +18,9 @@ use tracing_subscriber::EnvFilter;
 use webfinger_viewer::config::{ServerConfig, ViewerConfig};
 
 #[cfg(not(target_arch = "wasm32"))]
-const DEFAULT_CONFIG_FILE: &str = "webfinger-viewer/viewer.toml";
+const DEFAULT_CONFIG: &str = "bundled defaults";
 #[cfg(not(target_arch = "wasm32"))]
-const EXAMPLE_CONFIG_FILE: &str = "webfinger-viewer/viewer.example.toml";
+const EXAMPLE_CONFIG: &str = "bundled example";
 #[cfg(not(target_arch = "wasm32"))]
 const DEFAULT_HOST: &str = "127.0.0.1";
 #[cfg(not(target_arch = "wasm32"))]
@@ -33,8 +33,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
 
     let args = Args::parse();
-    let config_path = args.config_path();
-    let config = read_config(config_path)?;
+    let config_source = args.config_source();
+    let config = args.load_config()?;
     let server = server_config(&config, &args);
 
     let client = reqwest::Client::builder()
@@ -48,9 +48,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     eprintln!(
         "serving webfinger viewer at http://{addr}/webfinger using {}",
-        config_path.display()
+        config_source
     );
-    info!(%addr, config = %config_path.display(), "serving webfinger viewer");
+    info!(%addr, config = %config_source, "serving webfinger viewer");
     ::axum::serve(listener, app).await?;
     Ok(())
 }
@@ -73,16 +73,11 @@ fn init_logging() {
 #[command(author, version, about)]
 struct Args {
     /// Configuration TOML file for local viewer defaults.
-    #[arg(
-        long,
-        env = "WEBFINGER_VIEWER_CONFIG_FILE",
-        value_name = "PATH",
-        default_value = DEFAULT_CONFIG_FILE
-    )]
-    config: PathBuf,
+    #[arg(long, env = "WEBFINGER_VIEWER_CONFIG_FILE", value_name = "PATH")]
+    config: Option<PathBuf>,
 
     /// Use the bundled example viewer configuration.
-    #[arg(long)]
+    #[arg(long, conflicts_with = "config")]
     example_config: bool,
 
     /// Host address to bind.
@@ -96,11 +91,24 @@ struct Args {
 
 #[cfg(not(target_arch = "wasm32"))]
 impl Args {
-    fn config_path(&self) -> &Path {
+    fn config_source(&self) -> String {
         if self.example_config {
-            Path::new(EXAMPLE_CONFIG_FILE)
+            EXAMPLE_CONFIG.to_string()
+        } else if let Some(path) = &self.config {
+            path.display().to_string()
         } else {
-            &self.config
+            DEFAULT_CONFIG.to_string()
+        }
+    }
+
+    fn load_config(&self) -> Result<ViewerConfig, CliError> {
+        if self.example_config {
+            ViewerConfig::from_toml(webfinger_viewer::config::EXAMPLE_CONFIG)
+                .map_err(|error| CliError(error.to_string()))
+        } else if let Some(path) = &self.config {
+            read_config(path)
+        } else {
+            Ok(ViewerConfig::default())
         }
     }
 }
@@ -192,32 +200,41 @@ mod tests {
     use super::*;
 
     #[test]
-    fn example_config_flag_selects_example_file() {
+    fn explicit_config_conflicts_with_example() {
+        let error =
+            Args::try_parse_from(["webfinger", "--config", "config.toml", "--example-config"])
+                .unwrap_err();
+        assert_eq!(error.kind(), clap::error::ErrorKind::ArgumentConflict);
+    }
+
+    #[test]
+    fn no_config_uses_bundled_defaults() {
+        let args = Args::try_parse_from(["webfinger"]).unwrap();
+        assert_eq!(args.config_source(), DEFAULT_CONFIG);
+        let config = args.load_config().unwrap();
+        assert_eq!(
+            server_addr(&server_config(&config, &args)),
+            "127.0.0.1:8788"
+        );
+        assert_eq!(config.lookup.local_responder_port, 8787);
+    }
+
+    #[test]
+    fn example_config_flag_loads_bundled_example() {
         let args = Args {
-            config: DEFAULT_CONFIG_FILE.into(),
+            config: None,
             example_config: true,
             host: None,
             port: None,
         };
 
-        assert_eq!(args.config_path(), Path::new(EXAMPLE_CONFIG_FILE));
-    }
-
-    #[test]
-    fn default_config_matches_checked_in_local_defaults() {
-        let config =
-            ViewerConfig::from_toml(include_str!("../../webfinger-viewer/viewer.toml")).unwrap();
-
-        assert_eq!(config.server.host.as_deref(), Some(DEFAULT_HOST));
-        assert_eq!(config.server.port, Some(DEFAULT_PORT));
-        assert_eq!(config.lookup.local_responder_port, 8787);
+        assert_eq!(args.config_source(), EXAMPLE_CONFIG);
+        args.load_config().unwrap();
     }
 
     #[test]
     fn example_config_changes_bind_and_lookup_defaults() {
-        let config =
-            ViewerConfig::from_toml(include_str!("../../webfinger-viewer/viewer.example.toml"))
-                .unwrap();
+        let config = ViewerConfig::from_toml(webfinger_viewer::config::EXAMPLE_CONFIG).unwrap();
 
         assert_eq!(config.server.host.as_deref(), Some(DEFAULT_HOST));
         assert_eq!(config.server.port, Some(8791));
@@ -234,7 +251,7 @@ mod tests {
             lookup: Default::default(),
         };
         let args = Args {
-            config: DEFAULT_CONFIG_FILE.into(),
+            config: None,
             example_config: false,
             host: Some("0.0.0.0".to_string()),
             port: Some(8790),

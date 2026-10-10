@@ -7,6 +7,9 @@
 use serde::Deserialize;
 use thiserror::Error;
 
+/// Bundled example configuration for native viewer applications.
+pub const EXAMPLE_CONFIG: &str = include_str!("../viewer.example.toml");
+
 /// WebFinger viewer configuration loaded from TOML.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]

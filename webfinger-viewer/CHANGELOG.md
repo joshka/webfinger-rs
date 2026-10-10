@@ -7,6 +7,10 @@ Earlier generated notes are retained in the
 
 ## [0.1.0] - 2026-10-10
 
+### Added
+
+- Expose the bundled example configuration for native viewer applications.
+
 ### Changed
 
 - Add Axum viewer runtime ([#196](https://github.com/joshka/webfinger-rs/pull/196))

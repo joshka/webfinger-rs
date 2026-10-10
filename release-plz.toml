@@ -5,3 +5,11 @@ release_always = false
 # The full git-cliff config exposes render_always for unchanged lockstep crates.
 changelog_config = "release-cliff.toml"
 
+# Worker applications are deployed from this repository, never to crates.io.
+[[package]]
+name = "webfinger-service-worker"
+release = false
+
+[[package]]
+name = "webfinger-viewer-worker"
+release = false

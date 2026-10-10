@@ -3,14 +3,26 @@
 `webfinger-service-axum` is the native Axum server for `webfinger-service`. It owns Axum request
 extraction, response mapping, Tower HTTP tracing, and the local development binary.
 
+## Install
+
+```console
+cargo install webfinger-service-axum --version 0.1.0 --locked
+webfinger-service-axum
+```
+
+The first crates.io release is pending. Until then, install from this checkout with
+`cargo install --path webfinger-service-axum --locked`. The installed binary runs from any
+directory;
+it uses bundled defaults and requires no repository files.
+
 ## Run Locally
 
 ```console
 cargo run -p webfinger-service-axum
 ```
 
-By default this reads `webfinger-service/webfinger.toml`, an empty config with no WebFinger
-responses, and listens on `127.0.0.1:8788`. Lookups return `404` until you point the server at a
+By default this uses an empty configuration with no WebFinger responses, and listens on
+`127.0.0.1:8788`. Lookups return `404` until you point the server at a
 config file with resources.
 
 ```console
@@ -26,10 +38,14 @@ WEBFINGER_CONFIG_FILE=webfinger-service/webfinger.example.toml \
   cargo run -p webfinger-service-axum
 ```
 
+`--config` and `--example-config` are mutually exclusive, including config supplied by an
+environment variable. Explicit config paths are relative to the current directory. Missing or
+invalid files cause startup to fail rather than silently falling back to defaults.
+
 Useful options:
 
 - `--config <PATH>` or `WEBFINGER_CONFIG_FILE` chooses a TOML config file.
-- `--example-config` serves `webfinger-service/webfinger.example.toml`.
+- `--example-config` serves the bundled example resources.
 - `--host <HOST>` or `HOST` chooses the bind host.
 - `--port <PORT>` or `PORT` chooses the bind port.
 
