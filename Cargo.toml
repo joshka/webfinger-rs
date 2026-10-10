@@ -60,4 +60,4 @@ webfinger-viewer-axum = { path = "webfinger-viewer-axum", version = "0.0.36" }
 webfinger-rs = { path = "webfinger-rs", version = "0.0.36" }
 webfinger-service = { path = "webfinger-service", version = "0.0.36", default-features = false }
 webfinger-service-axum = { path = "webfinger-service-axum", version = "0.0.36" }
-worker = { version = "0.8.5", default-features = false }
+worker = { version = ">=0.8.5, <0.8.7", default-features = false }
