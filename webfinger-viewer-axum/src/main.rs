@@ -18,10 +18,6 @@ use tracing_subscriber::EnvFilter;
 use webfinger_viewer::config::{ServerConfig, ViewerConfig};
 
 #[cfg(not(target_arch = "wasm32"))]
-const DEFAULT_CONFIG: &str = "bundled defaults";
-#[cfg(not(target_arch = "wasm32"))]
-const EXAMPLE_CONFIG: &str = "bundled example";
-#[cfg(not(target_arch = "wasm32"))]
 const DEFAULT_HOST: &str = "127.0.0.1";
 #[cfg(not(target_arch = "wasm32"))]
 const DEFAULT_PORT: u16 = 8788;
@@ -34,7 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::parse();
     let config_source = args.config_source();
-    let config = args.load_config()?;
+    let config = config_source.load_config()?;
     let server = server_config(&config, &args);
 
     let client = reqwest::Client::builder()
@@ -91,24 +87,43 @@ struct Args {
 
 #[cfg(not(target_arch = "wasm32"))]
 impl Args {
-    fn config_source(&self) -> String {
+    fn config_source(&self) -> ConfigSource {
         if self.example_config {
-            EXAMPLE_CONFIG.to_string()
+            ConfigSource::Example
         } else if let Some(path) = &self.config {
-            path.display().to_string()
+            ConfigSource::File(path.clone())
         } else {
-            DEFAULT_CONFIG.to_string()
+            ConfigSource::Defaults
         }
     }
+}
 
+#[cfg(not(target_arch = "wasm32"))]
+enum ConfigSource {
+    Defaults,
+    Example,
+    File(PathBuf),
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl ConfigSource {
     fn load_config(&self) -> Result<ViewerConfig, CliError> {
-        if self.example_config {
-            ViewerConfig::from_toml(webfinger_viewer::config::EXAMPLE_CONFIG)
-                .map_err(|error| CliError(error.to_string()))
-        } else if let Some(path) = &self.config {
-            read_config(path)
-        } else {
-            Ok(ViewerConfig::default())
+        match self {
+            Self::Defaults => Ok(ViewerConfig::default()),
+            Self::Example => ViewerConfig::from_toml(webfinger_viewer::config::EXAMPLE_CONFIG)
+                .map_err(|error| CliError(error.to_string())),
+            Self::File(path) => read_config(path),
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl std::fmt::Display for ConfigSource {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Defaults => formatter.write_str("built-in defaults"),
+            Self::Example => formatter.write_str("embedded example"),
+            Self::File(path) => write!(formatter, "{}", path.display()),
         }
     }
 }
@@ -208,10 +223,11 @@ mod tests {
     }
 
     #[test]
-    fn no_config_uses_bundled_defaults() {
+    fn no_config_uses_built_in_defaults() {
         let args = Args::try_parse_from(["webfinger"]).unwrap();
-        assert_eq!(args.config_source(), DEFAULT_CONFIG);
-        let config = args.load_config().unwrap();
+        let source = args.config_source();
+        assert_eq!(source.to_string(), "built-in defaults");
+        let config = source.load_config().unwrap();
         assert_eq!(
             server_addr(&server_config(&config, &args)),
             "127.0.0.1:8788"
@@ -228,8 +244,9 @@ mod tests {
             port: None,
         };
 
-        assert_eq!(args.config_source(), EXAMPLE_CONFIG);
-        args.load_config().unwrap();
+        let source = args.config_source();
+        assert_eq!(source.to_string(), "embedded example");
+        source.load_config().unwrap();
     }
 
     #[test]
