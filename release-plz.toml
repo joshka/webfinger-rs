@@ -1,0 +1,7 @@
+# Every crate inherits workspace.package.version. Release-plz raises that shared
+# version to the highest required bump and preserves inheritance in each crate.
+[workspace]
+release_always = false
+# The full git-cliff config exposes render_always for unchanged lockstep crates.
+changelog_config = "release-cliff.toml"
+

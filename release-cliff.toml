@@ -1,0 +1,48 @@
+[changelog]
+header = """<!-- markdownlint-disable MD013 -->
+# Changelog
+
+Release notes from 0.1.0 onward. Dates on pending releases are provisional.
+Earlier generated notes are retained in the
+[pre-0.1 archive](../docs/changelog-archive/README.md).
+
+"""
+body = """
+{% if version %}\
+## [{{ version }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+## [Unreleased]
+{% endif %}\
+{% if commits | length == 0 %}
+Shared workspace version bump; no crate-specific changes.
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group }}
+
+{% for commit in commits | unique(attribute="id") %}\
+- {% if commit.breaking %}**Breaking:** {% endif %}{{ commit.message | upper_first }}
+{% endfor %}\
+{% endfor %}\
+{{ "\n" }}\
+"""
+trim = true
+# Also render crates that change only because the shared workspace version rises.
+render_always = true
+[git]
+conventional_commits = true
+filter_unconventional = false
+protect_breaking_commits = true
+sort_commits = "oldest"
+commit_parsers = [
+  { message = '^chore(\([^)]*\))?: release\b', skip = true },
+  { message = '^chore\(release\): prepare', skip = true },
+  { message = '^chore\(deps\):.*(github_actions|actions/|rust-toolchain|rust-cache|codecov|install-action|release-plz/action)', skip = true },
+  { message = '^chore\(deps', group = "Dependencies" },
+  { message = '^feat', group = "Added" },
+  { message = '^fix', group = "Fixed" },
+  { message = '^security', group = "Security" },
+  { message = '^docs(\([^)]*\))?:', group = "Documentation" },
+  { message = '^refactor(\([^)]*\))?:', group = "Changed" },
+  { message = '^(ci|test|style|chore)(\([^)]*\))?:', skip = true },
+  { message = '.*', group = "Changed" },
+]
