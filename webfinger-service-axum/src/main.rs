@@ -2,9 +2,6 @@ use std::path::{Path, PathBuf};
 
 use clap::Parser;
 
-const DEFAULT_CONFIG: &str = "bundled defaults";
-const EXAMPLE_CONFIG: &str = "bundled example";
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     use std::net::SocketAddr;
@@ -21,7 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::parse();
     let config_source = args.config_source();
-    let config = args.load_config()?;
+    let config = config_source.load_config()?;
     let provider = StaticConfigProvider::from_toml(&config)?;
 
     let addr: SocketAddr = format!("{}:{}", args.host, args.port).parse()?;
@@ -59,23 +56,39 @@ struct Args {
 }
 
 impl Args {
-    fn config_source(&self) -> String {
+    fn config_source(&self) -> ConfigSource {
         if self.example_config {
-            EXAMPLE_CONFIG.to_string()
+            ConfigSource::Example
         } else if let Some(path) = &self.config {
-            path.display().to_string()
+            ConfigSource::File(path.clone())
         } else {
-            DEFAULT_CONFIG.to_string()
+            ConfigSource::Defaults
         }
     }
+}
 
+enum ConfigSource {
+    Defaults,
+    Example,
+    File(PathBuf),
+}
+
+impl ConfigSource {
     fn load_config(&self) -> Result<String, CliError> {
-        if self.example_config {
-            Ok(webfinger_service::EXAMPLE_CONFIG.to_string())
-        } else if let Some(path) = &self.config {
-            read_config(path)
-        } else {
-            Ok("resources = []".to_string())
+        match self {
+            Self::Defaults => Ok("resources = []".to_string()),
+            Self::Example => Ok(webfinger_service::EXAMPLE_CONFIG.to_string()),
+            Self::File(path) => read_config(path),
+        }
+    }
+}
+
+impl std::fmt::Display for ConfigSource {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Defaults => formatter.write_str("built-in defaults"),
+            Self::Example => formatter.write_str("embedded example"),
+            Self::File(path) => write!(formatter, "{}", path.display()),
         }
     }
 }
@@ -149,10 +162,11 @@ mod tests {
     }
 
     #[test]
-    fn no_config_uses_bundled_defaults() {
+    fn no_config_uses_built_in_defaults() {
         let args = Args::try_parse_from(["webfinger"]).unwrap();
-        assert_eq!(args.config_source(), DEFAULT_CONFIG);
-        let config = args.load_config().unwrap();
+        let source = args.config_source();
+        assert_eq!(source.to_string(), "built-in defaults");
+        let config = source.load_config().unwrap();
         webfinger_service::StaticConfigProvider::from_toml(&config).unwrap();
         assert_eq!(config, "resources = []");
     }
@@ -166,7 +180,8 @@ mod tests {
             port: 8788,
         };
 
-        assert_eq!(args.config_source(), EXAMPLE_CONFIG);
-        args.load_config().unwrap();
+        let source = args.config_source();
+        assert_eq!(source.to_string(), "embedded example");
+        source.load_config().unwrap();
     }
 }
