@@ -91,7 +91,7 @@ impl FetchCommand {
                 debug!("extracted host from acct resource: {}", host);
                 Ok(host.to_string())
             } else {
-                bail!("no host provided")
+                bail!("no host provided");
             }
         }
     }
