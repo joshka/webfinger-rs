@@ -35,10 +35,22 @@ jobs:
         uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f
         with:
           toolchain: stable
+      - name: Select release configuration
+        id: release-config
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          config=release-plz.toml
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            config="$RUNNER_TEMP/release-plz-manual.toml"
+            sed 's/^release_always = false$/release_always = true/' release-plz.toml > "$config"
+          fi
+          echo "path=$config" >> "$GITHUB_OUTPUT"
       - name: Run release-plz release
         uses: release-plz/action@d6c56271d640b6c1b61d1e00593641c400a9f4bd
         with:
           command: release
+          config: ${{ steps.release-config.outputs.path }}
           version: 0.3.160
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
