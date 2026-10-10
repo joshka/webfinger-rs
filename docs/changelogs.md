@@ -43,7 +43,7 @@ for builds, but receive no registry uploads, release tags or GitHub releases.
 
 Published crates are compared with their registry packages. At the changelog reset, the library and
 CLI baseline
-was 0.0.36. The four service/viewer crates awaiting their first publication receive initial-release
+was 0.0.36. The four service/viewer crates published alongside that milestone receive initial-release
 notes from their package history, including features introduced before the latest workspace version
 bump.
 

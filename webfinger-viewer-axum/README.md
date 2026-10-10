@@ -14,7 +14,7 @@ cargo install webfinger-viewer-axum --version 0.1.0 --locked
 webfinger-viewer-axum
 ```
 
-The first crates.io release is pending. Until then, install from this checkout with
+To install from this checkout instead, use
 `cargo install --path webfinger-viewer-axum --locked`. The installed binary runs from any directory;
 it uses bundled defaults and requires no repository files.
 
