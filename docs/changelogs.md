@@ -5,32 +5,47 @@ exposes `render_always`, which release-plz 0.3.160's inline changelog settings d
 This ensures unchanged crates receive a section for their shared version bump. The older
 `cliff.toml` remains a separate standalone configuration.
 
-The proposed 0.1.0 milestone preserves old output in [the archive](changelog-archive/README.md) and
-starts one clean section per crate. It is a pre-1.0 milestone, not a promise of stable 1.x APIs.
+The 0.1.0 milestone preserves old output in [the archive](changelog-archive/README.md) and
+starts one clean section per crate. The library and CLI 0.1.0 releases are published. It is a
+pre-1.0 milestone, not a promise of stable 1.x APIs.
 All eight manifests inherit the workspace version, and internal requirements match that version.
 
 ## Shared release version
 
 The root `[workspace.package].version` is the only crate version value. Every crate uses
 `version.workspace = true`. Release-plz 0.3.160 supports this inheritance directly: it selects the
-highest required bump, updates the root version, and prepares that version for all eight crates,
-including crates without their own changes. It preserves each crate's version inheritance and
+highest required bump, updates the root version, and prepares that version for the six publishable
+crates,
+including crates without their own changes. Both private Workers inherit the new build version;
+release-plz leaves their changelogs unchanged because they do not have registry releases. It
+preserves each crate's version inheritance and
 updates internal dependency requirements and the lockfile. No `version_group` is needed.
 
 A patch in just one crate therefore raises all eight from 0.1.0 to 0.1.1. A patch in one crate and a
 breaking change in another raise all eight to 0.2.0. Their notes remain crate-specific; an unchanged
-crate receives a shared-version-only section rather than fabricated feature notes. Published versions
+crate receives a shared-version-only section rather than fabricated feature notes. Published
+versions
 share a number, but registry publication consists of separate crate uploads and can partially fail.
 
 Run `python3 scripts/check-release-versions.py` after regeneration to verify inheritance, internal
-requirements, lockfile versions, and the latest changelog headings. Do not replace inheritance with
+requirements, lockfile versions, and the latest publishable-crate changelog headings. Do not replace
+inheritance with
 literal per-crate versions: that changes release-plz's version-selection behavior.
+
+## Publication scope
+
+Six crates target crates.io: the library, CLI, service core, Axum service, viewer core and Axum
+viewer. The two Cloudflare Worker applications are repository deployments: their manifests use
+`publish = false` and release-plz uses `release = false`. They retain the shared workspace version
+for builds, but receive no registry uploads, release tags or GitHub releases.
 
 ## Release boundaries
 
-Published crates are compared with their registry packages. The verified latest library and CLI
-release is 0.0.36. The six unpublished service/viewer crates receive initial-release notes from their
-package history, including features introduced before the latest workspace version bump.
+Published crates are compared with their registry packages. At the changelog reset, the library and
+CLI baseline
+was 0.0.36. The four service/viewer crates awaiting their first publication receive initial-release
+notes from their package history, including features introduced before the latest workspace version
+bump.
 
 Release-plz uses package contents and dependency traversal to attribute commits. A workspace
 `Cargo.toml` edit alone does not imply a bullet in every crate. At this reset the library receives
@@ -62,8 +77,10 @@ python3 scripts/check-release-versions.py
 ```
 
 `update` changes local release files; it does not publish. The fixed date makes comparison
-repeatable; choose the intended date for a future release. Repeat `update` and compare all manifests,
-`Cargo.lock` and crate changelogs byte-for-byte. A second run must not add sections or repeat bullets.
+repeatable; choose the intended date for a future release. Repeat `update` and compare all
+manifests,
+`Cargo.lock` and crate changelogs byte-for-byte. A second run must not add sections or repeat
+bullets.
 
 For the one-time version proposal, use `release-plz set-version` with each `package@0.1.0`, then
 `cargo update --workspace`. The tool materializes crate versions: restore `version.workspace = true`
