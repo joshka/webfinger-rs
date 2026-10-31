@@ -3035,7 +3035,7 @@ dependencies = [
 
 [[package]]
 name = "webfinger-cli"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "clap",
  "clap-cargo",
@@ -3053,7 +3053,7 @@ dependencies = [
 
 [[package]]
 name = "webfinger-rs"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "actix-web",
  "async-convert",
@@ -3080,7 +3080,7 @@ dependencies = [
 
 [[package]]
 name = "webfinger-service"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "serde",
  "thiserror",
@@ -3090,7 +3090,7 @@ dependencies = [
 
 [[package]]
 name = "webfinger-service-axum"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "axum",
  "clap",
@@ -3107,7 +3107,7 @@ dependencies = [
 
 [[package]]
 name = "webfinger-service-worker"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "axum",
  "serde_json",
@@ -3123,7 +3123,7 @@ dependencies = [
 
 [[package]]
 name = "webfinger-viewer"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "askama",
  "http 1.5.0",
@@ -3138,7 +3138,7 @@ dependencies = [
 
 [[package]]
 name = "webfinger-viewer-axum"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "axum",
  "clap",
@@ -3156,7 +3156,7 @@ dependencies = [
 
 [[package]]
 name = "webfinger-viewer-worker"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "futures-util",
  "http 1.5.0",
