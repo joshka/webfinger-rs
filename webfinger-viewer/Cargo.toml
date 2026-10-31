@@ -11,7 +11,7 @@ readme = "README.md"
 keywords = ["webfinger", "viewer", "debug"]
 
 [dependencies]
-askama = "0.16.0"
+askama = { version = "0.16.0", default-features = false, features = ["derive", "std", "urlencode"] }
 http.workspace = true
 serde.workspace = true
 serde_json.workspace = true
