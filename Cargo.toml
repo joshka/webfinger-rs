@@ -27,7 +27,7 @@ readme = "README.md"
 actix-web = { version = "4.6", default-features = false, features = ["rustls-0_23"] }
 async-convert = "1"
 axum = { version = "0.8", default-features = false }
-axum-server = { version = "0.8" }
+axum-server = { version = "0.9" }
 clap = "4.5.48"
 clap-cargo = "0.19"
 clap-verbosity-flag = { version = "3.0.1", default-features = false }
@@ -60,4 +60,4 @@ webfinger-viewer-axum = { path = "webfinger-viewer-axum", version = "0.1.1" }
 webfinger-rs = { path = "webfinger-rs", version = "0.1.1" }
 webfinger-service = { path = "webfinger-service", version = "0.1.1", default-features = false }
 webfinger-service-axum = { path = "webfinger-service-axum", version = "0.1.1" }
-worker = { version = ">=0.8.5, <0.8.8", default-features = false }
+worker = { version = ">=0.8.5, <0.9.1", default-features = false }
