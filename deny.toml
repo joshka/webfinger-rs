@@ -1,6 +1,10 @@
 [advisories]
 version = 2
-ignore = []
+ignore = [
+  # chrono is unmaintained with no safe upgrade; it only enters through the
+  # `worker` crate used by the Cloudflare Worker binaries.
+  { id = "RUSTSEC-2026-0543", reason = "transitive via worker; no maintained alternative upstream yet" },
+]
 
 [licenses]
 version = 2

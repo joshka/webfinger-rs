@@ -424,7 +424,8 @@ mod tests {
     /// Relies on Actix routing to reject non-`GET` requests before extraction.
     ///
     /// RFC 7033 section 4.2 specifies a `GET` request. Method matching stays in the router so
-    /// applications get normal Actix routing behavior for other methods.
+    /// applications get normal Actix routing behavior for other methods. Since actix-web 4.19 that
+    /// is `405 Method Not Allowed` with an `Allow: GET` header.
     ///
     /// See <https://www.rfc-editor.org/rfc/rfc7033.html#section-4.2>.
     #[actix_web::test]
@@ -439,7 +440,12 @@ mod tests {
 
         let response = test::call_service(&app, request).await;
 
-        assert_eq!(response.status(), StatusCode::NOT_FOUND, "{response:?}");
+        assert_eq!(
+            response.status(),
+            StatusCode::METHOD_NOT_ALLOWED,
+            "{response:?}"
+        );
+        assert_eq!(response.headers().get("allow").unwrap(), "GET");
         Ok(())
     }
 
