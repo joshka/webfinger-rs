@@ -5,6 +5,12 @@ Release notes from 0.1.0 onward. Dates on pending releases are provisional.
 Earlier generated notes are retained in the
 [pre-0.1 archive](../docs/changelog-archive/README.md).
 
+## [0.1.2] - 2026-11-26
+
+### Fixed
+
+- Update actix and url for security advisories ([#273](https://github.com/joshka/webfinger-rs/pull/273))
+
 ## [0.1.1] - 2026-10-10
 
 Shared workspace version bump; no crate-specific changes.
